@@ -1,0 +1,16 @@
+[package]
+name = "speki-cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["tor torberge@outlook.com"]
+description = "cli version of speki"
+license = "GPL-2.0-only"
+
+
+[dependencies]
+clap = { version = "4.5.17", features = ["derive"] }
+skim = "0.10.4"
+speki-core = { path = "../speki-core" }
+text_io = "0.1.12"
+strum = "0.24"
+strum_macros = "0.24"
