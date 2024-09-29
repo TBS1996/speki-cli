@@ -3,12 +3,15 @@ use collections::col_stuff;
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
 use incread::{inc_path, textstuff};
+use opener::open;
 use speki_core::{
     common::Id,
+    github::{poll_for_token, request_device_code, LoginInfo},
     paths::{config_dir, get_cards_path, get_review_path},
     SavedCard,
 };
 use text_io::read;
+use utils::clear_terminal;
 
 mod add_cards;
 mod collections;
@@ -44,8 +47,20 @@ fn inspect_files() {
 }
 
 fn menu() {
+    let mut login = LoginInfo::load();
+
     loop {
         utils::clear_terminal();
+        if let Some(info) = &login {
+            println!("signed in as {}", info.login)
+        };
+
+        let sign = if login.is_some() {
+            "sign out"
+        } else {
+            "sign in"
+        };
+
         let items = vec![
             "Review",
             "Add cards",
@@ -53,10 +68,10 @@ fn menu() {
             "Incremental reading",
             "Inspect collections",
             "Inspect files",
+            sign,
         ];
 
         let selection = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("")
             .items(&items)
             .default(0)
             .interact()
@@ -69,6 +84,10 @@ fn menu() {
             3 => textstuff(),
             4 => col_stuff(),
             5 => inspect_files(),
+            6 => match login.take() {
+                Some(login) => login.delete_login(),
+                None => login = Some(authenticate()),
+            },
             _ => panic!(),
         }
     }
@@ -109,6 +128,17 @@ struct Cli {
     debug: bool,
     #[arg(long)]
     recall: Option<String>,
+}
+
+pub fn authenticate() -> LoginInfo {
+    clear_terminal();
+    let res = request_device_code().unwrap();
+    open(&res.verification_uri).unwrap();
+    clear_terminal();
+    println!("enter code in browser: {}", &res.user_code);
+    read();
+    let token = poll_for_token(&res.device_code, res.interval);
+    token
 }
 
 fn main() {
