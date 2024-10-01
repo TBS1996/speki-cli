@@ -36,7 +36,7 @@ fn manage_col(col: Collection) {
             col.pull();
         }
         1 => {
-            col.pull();
+            // col.pull();
             col.add();
             col.commit().unwrap();
             col.push().unwrap();

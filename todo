@@ -2,9 +2,11 @@ easily change location where new cards added
 handle merge conflicts in program
 add key-value tag system
 easy backup of reviews
-log in with github
 metadata of cards separately, like suspended, custom tags etc
 more exporting options
 view card interface 
-create remote thing, where you use github to create new repo up there
+way to sort unfinished cards by how many cards they'd unlock lol, basically like, if 1 card has 2 unfinished depdencnies, then each dependency "unlocks" 0.5 cards, if two cards depend on 1 unfinished card, that cards unlocks 2 cards, works recursively
 
+# done
+log in with github
+create remote thing, where you use github to create new repo up there

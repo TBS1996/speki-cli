@@ -46,8 +46,10 @@ fn inspect_files() {
     }
 }
 
-fn menu() {
+async fn menu() {
     let mut login = LoginInfo::load();
+
+    //new_repo_col(&login.clone().unwrap(), "repo3", true);
 
     loop {
         utils::clear_terminal();
@@ -141,7 +143,8 @@ pub fn authenticate() -> LoginInfo {
     token
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let cli = Cli::parse();
 
     if cli.add.is_some() {
@@ -167,6 +170,6 @@ fn main() {
         let x = speki_core::SavedCard::from_id(&id).unwrap().recall_rate();
         dbg!(x);
     } else {
-        menu();
+        menu().await;
     }
 }

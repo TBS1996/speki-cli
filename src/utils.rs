@@ -1,7 +1,6 @@
+use crate::read;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{common::Id, SavedCard};
-
-use crate::read;
 
 pub fn _notify(msg: &str) {
     clear_terminal();
@@ -23,38 +22,23 @@ pub fn clear_terminal() {
     std::io::stdout().flush().unwrap();
 }
 
-pub fn get_lines_slice(chars: &[char], max_lines: usize) -> String {
-    let width = console::Term::stdout().size().0;
+pub fn get_lines(text: &str, line_width: usize, height: usize, position: usize) -> Vec<String> {
+    let mut output = vec![];
+    let lines = cli_justify::justify(text, line_width);
 
-    let mut line_count = 0;
-    let mut current_line_length = 0;
-    let mut result = String::new();
-
-    for &c in chars {
-        // If we hit a newline, reset the current line length
-        if c == '\n' {
-            result.push(c);
-            line_count += 1;
-            current_line_length = 0;
-        } else {
-            // Add character to the result
-            result.push(c);
-            current_line_length += 1;
-
-            // If the current line exceeds terminal width, consider it wrapped
-            if current_line_length >= width as usize {
-                line_count += 1;
-                current_line_length = 0; // Reset for the next line
-            }
+    let mut sum = 0;
+    for line in lines {
+        sum += line.chars().count();
+        if sum >= position {
+            output.push(line);
         }
 
-        // Stop if we have reached the max_lines
-        if line_count >= max_lines {
-            break;
+        if output.len() >= height {
+            return output;
         }
     }
 
-    result
+    output
 }
 
 pub fn select_item<T: ToString>(items: &[T]) -> usize {

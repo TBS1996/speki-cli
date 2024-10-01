@@ -7,7 +7,7 @@ use std::fs::{self, read_to_string};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::utils::get_lines_slice;
+use crate::utils::get_lines;
 use crate::{read, utils::clear_terminal};
 
 pub fn inc_path() -> PathBuf {
@@ -97,28 +97,38 @@ pub fn textstuff() {
 
     let file = select_text(paths);
 
-    let window_size = 500;
-    let scroll_size = window_size;
+    let window_size = 700;
+    let scroll_size = window_size - 200;
 
     let s: String = file.to_string_lossy().to_owned().to_string();
     let file = PathBuf::from(&s);
 
-    let s: String = read_to_string(&file).unwrap();
-    let charred: Vec<char> = s.chars().collect();
-    let textlen = charred.len();
+    let text: String = read_to_string(&file).unwrap();
+    let textlen = text.chars().count();
     let mut txtprog = TextProgress::xload();
     let mut position = TextProgress::get_pos(&file).min(textlen);
     let opts = ["add card", "go forward", "go back", "exit"];
     let mut pos = 0;
 
+    let menu_size = opts.len() as u16 + 3;
+
     loop {
         clear_terminal();
         //let slice = char_slice(charred.as_slice(), position, window_size);
         //let s: String = slice.iter().collect();
+        let (height, width) = console::Term::stdout().size();
+        let free_space = if height > menu_size {
+            height - menu_size
+        } else {
+            0
+        };
 
-        let s = get_lines_slice(&charred[position..], 20);
+        let line_qty = 20.min(free_space);
 
-        println!("{}", s);
+        let s = get_lines(&text, 50.min(width as usize), line_qty as usize, position);
+        for line in s {
+            println!("{}", line);
+        }
 
         let idx = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("")
@@ -134,7 +144,7 @@ pub fn textstuff() {
                 if let Some((front, back)) = input.split_once(";") {
                     speki_core::add_card(front.to_string(), back.to_string());
                 } else {
-                    speki_core::add_unfinished(s);
+                    speki_core::add_unfinished(input);
                 }
             }
             1 => {
