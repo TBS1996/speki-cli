@@ -1,19 +1,23 @@
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
-use speki_core::common::Id;
+use speki_core::{categories::Category, common::Id};
 
-use crate::utils::clear_terminal;
+use crate::utils::{choose_folder, clear_terminal};
 
 pub fn add_cards() {
+    let Some(category) = choose_folder() else {
+        return;
+    };
+
     loop {
         clear_terminal();
-        if add_card().is_none() {
+        if add_card(&category).is_none() {
             break;
         }
     }
 }
 
-pub fn add_card() -> Option<Id> {
+pub fn add_card(category: &Category) -> Option<Id> {
     let s = style("front").bold();
     let front: String = Input::new()
         .with_prompt(s.to_string())
@@ -42,12 +46,12 @@ pub fn add_card() -> Option<Id> {
             .unwrap();
 
         match selection {
-            0 => speki_core::add_unfinished(front),
+            0 => speki_core::add_unfinished(front, category),
             1 => return None,
             _ => panic!(),
         }
     } else {
-        speki_core::add_card(front, back)
+        speki_core::add_card(front, back, category)
     }
     .into()
 }

@@ -10,8 +10,8 @@ license = "GPL-2.0-only"
 [dependencies]
 clap = { version = "4.5.17", features = ["derive"] }
 skim = "0.10.4"
-speki-core = "0.1.5"
-#speki-core = { path = "../speki-core" }
+#speki-core = "0.1.5"
+speki-core = { path = "../speki-core" }
 text_io = "0.1.12"
 strum = "0.24"
 strum_macros = "0.24"

@@ -7,7 +7,7 @@ use std::fs::{self, read_to_string};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::utils::get_lines;
+use crate::utils::{choose_folder, get_lines};
 use crate::{read, utils::clear_terminal};
 
 pub fn inc_path() -> PathBuf {
@@ -95,6 +95,10 @@ pub fn textstuff() {
         return;
     }
 
+    let Some(category) = choose_folder() else {
+        return;
+    };
+
     let file = select_text(paths);
 
     let window_size = 700;
@@ -142,9 +146,9 @@ pub fn textstuff() {
                 pos = 0;
                 let input = read();
                 if let Some((front, back)) = input.split_once(";") {
-                    speki_core::add_card(front.to_string(), back.to_string());
+                    speki_core::add_card(front.to_string(), back.to_string(), &category);
                 } else {
-                    speki_core::add_unfinished(input);
+                    speki_core::add_unfinished(input, &category);
                 }
             }
             1 => {

@@ -5,6 +5,7 @@ use dialoguer::{theme::ColorfulTheme, Select};
 use incread::{inc_path, textstuff};
 use opener::open;
 use speki_core::{
+    categories::Category,
     common::Id,
     github::{poll_for_token, request_device_code, LoginInfo},
     paths::{config_dir, get_cards_path, get_review_path},
@@ -46,6 +47,29 @@ fn inspect_files() {
     }
 }
 
+fn add_cards_menu() {
+    let items = vec![
+        "New cards",
+        "Unfinished cards",
+        "Incremental reading",
+        "exit",
+    ];
+
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .items(&items)
+        .default(0)
+        .interact()
+        .unwrap();
+
+    match selection {
+        0 => crate::add_cards::add_cards(),
+        1 => crate::unfinished::unfinished(),
+        2 => textstuff(),
+        3 => return,
+        _ => panic!(),
+    }
+}
+
 async fn menu() {
     let mut login = LoginInfo::load();
 
@@ -64,11 +88,9 @@ async fn menu() {
         };
 
         let items = vec![
-            "Review",
+            "Review cards",
             "Add cards",
-            "Unfinished",
-            "Incremental reading",
-            "Inspect collections",
+            "Manage collections",
             "Inspect files",
             sign,
         ];
@@ -81,12 +103,10 @@ async fn menu() {
 
         match selection {
             0 => crate::review::review(),
-            1 => crate::add_cards::add_cards(),
-            2 => crate::unfinished::unfinished(),
-            3 => textstuff(),
-            4 => col_stuff(),
-            5 => inspect_files(),
-            6 => match login.take() {
+            1 => add_cards_menu(),
+            2 => col_stuff(),
+            3 => inspect_files(),
+            4 => match login.take() {
                 Some(login) => login.delete_login(),
                 None => login = Some(authenticate()),
             },
@@ -149,11 +169,12 @@ async fn main() {
 
     if cli.add.is_some() {
         let s = cli.add.unwrap();
+        let category = Category::default();
 
         if let Some((front, back)) = s.split_once(";") {
-            speki_core::add_card(front.to_string(), back.to_string());
+            speki_core::add_card(front.to_string(), back.to_string(), &category);
         } else {
-            speki_core::add_unfinished(s);
+            speki_core::add_unfinished(s, &category);
         }
     } else if cli.list {
         dbg!(speki_core::load_cards());

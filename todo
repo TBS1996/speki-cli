@@ -6,6 +6,7 @@ metadata of cards separately, like suspended, custom tags etc
 more exporting options
 view card interface 
 way to sort unfinished cards by how many cards they'd unlock lol, basically like, if 1 card has 2 unfinished depdencnies, then each dependency "unlocks" 0.5 cards, if two cards depend on 1 unfinished card, that cards unlocks 2 cards, works recursively
+use health trackers to calculate recall rate?
 
 # done
 log in with github

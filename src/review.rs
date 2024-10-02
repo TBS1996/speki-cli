@@ -80,13 +80,31 @@ impl FromStr for ReviewAction {
 
 pub fn review() {
     let filter =
-        "recall < 0.9 & finished == true & suspended == false & resolved == true".to_string();
+        "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5".to_string();
+
+    /*
+    let filter: String = Input::new()
+        .with_prompt("filter")
+        .allow_empty(true)
+        .with_initial_text(filter)
+        .interact_text()
+        .expect("Failed to read input");
+
+    if filter.is_empty() {
+        return;
+    }
+    */
+
     let cards = speki_core::cards_filtered(filter);
     if cards.is_empty() {
         clear_terminal();
         println!("nothing to review!");
         read();
         return;
+    } else {
+        clear_terminal();
+        println!("reviewing {} cards", cards.len());
+        read();
     }
 
     for card in cards {
@@ -98,6 +116,12 @@ pub fn review() {
 
             let opts = ["reveal answer"];
 
+            println!(
+                "recall: {:.1}% stability: {:.2} days",
+                (card.recall_rate().unwrap() * 100.),
+                card.maturity()
+            );
+            println!();
             println!("{}", card.front_text());
             if !flag {
                 println!();
@@ -111,6 +135,12 @@ pub fn review() {
                     0 => {
                         flag = true;
                         clear_terminal();
+                        println!(
+                            "recall: {:.1}% stability: {:.2} days",
+                            (card.recall_rate().unwrap() * 100.),
+                            card.maturity()
+                        );
+                        println!();
                         println!("{}", card.front_text());
                         println!();
                         println!("-------------------------------------------------");
@@ -147,9 +177,9 @@ pub fn review() {
                     println!("add dependency");
                     let s: String = read();
                     let id = if let Some((front, back)) = s.split_once(";") {
-                        speki_core::add_card(front.to_string(), back.to_string())
+                        speki_core::add_card(front.to_string(), back.to_string(), card.category())
                     } else {
-                        speki_core::add_unfinished(s)
+                        speki_core::add_unfinished(s, card.category())
                     };
 
                     speki_core::set_dependency(card.id(), id);
@@ -163,9 +193,9 @@ pub fn review() {
                     println!("add dependent");
                     let s: String = read();
                     let id = if let Some((front, back)) = s.split_once(";") {
-                        speki_core::add_card(front.to_string(), back.to_string())
+                        speki_core::add_card(front.to_string(), back.to_string(), card.category())
                     } else {
-                        speki_core::add_unfinished(s)
+                        speki_core::add_unfinished(s, card.category())
                     };
 
                     speki_core::set_dependency(id, card.id());
