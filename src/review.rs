@@ -118,7 +118,7 @@ pub fn review() {
 
             println!(
                 "recall: {:.1}% stability: {:.2} days",
-                (card.recall_rate().unwrap() * 100.),
+                (card.recall_rate().unwrap_or_default() * 100.),
                 card.maturity()
             );
             println!();
@@ -137,7 +137,7 @@ pub fn review() {
                         clear_terminal();
                         println!(
                             "recall: {:.1}% stability: {:.2} days",
-                            (card.recall_rate().unwrap() * 100.),
+                            (card.recall_rate().unwrap_or_default() * 100.),
                             card.maturity()
                         );
                         println!();

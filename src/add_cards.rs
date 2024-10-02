@@ -5,9 +5,7 @@ use speki_core::{categories::Category, common::Id};
 use crate::utils::{choose_folder, clear_terminal};
 
 pub fn add_cards() {
-    let Some(category) = choose_folder() else {
-        return;
-    };
+    let category = choose_folder();
 
     loop {
         clear_terminal();

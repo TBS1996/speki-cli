@@ -1,6 +1,6 @@
 use crate::read;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
-use speki_core::{categories::Category, collections::Collection, common::Id, SavedCard};
+use speki_core::{categories::Category, common::Id, SavedCard};
 
 pub fn _notify(msg: &str) {
     clear_terminal();
@@ -68,25 +68,15 @@ pub fn _get_input(prompt: &str) -> String {
     get_input_opt(prompt).unwrap_or_default()
 }
 
-pub fn choose_folder() -> Option<Category> {
-    let mut opts: Vec<String> = Collection::load_all()
-        .iter()
-        .map(|col| col.name().to_string())
-        .collect();
-    opts.push("exit".to_string());
-    let selection = select_item(&opts);
-    if selection == opts.len() {
-        return None;
-    }
-
-    let col = Collection::load_all().remove(selection);
-
-    let cats: Vec<String> = Category::load_all(&col)
+pub fn choose_folder() -> Category {
+    let cats: Vec<String> = Category::load_all(None)
         .iter()
         .map(|cat| format!("{}", cat.print_it_with_depth()))
         .collect();
 
-    let category = Category::load_all(&col).remove(select_item(&cats));
+    if cats.len() < 2 {
+        return Category::default();
+    }
 
-    Some(category)
+    Category::load_all(None).remove(select_item(&cats))
 }

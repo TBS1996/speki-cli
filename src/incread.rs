@@ -95,9 +95,7 @@ pub fn textstuff() {
         return;
     }
 
-    let Some(category) = choose_folder() else {
-        return;
-    };
+    let category = choose_folder();
 
     let file = select_text(paths);
 
