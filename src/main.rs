@@ -13,8 +13,7 @@ use speki_core::{
     paths::{config_dir, get_cards_path, get_review_path},
     SavedCard,
 };
-use text_io::read;
-use utils::clear_terminal;
+use utils::{clear_terminal, notify};
 
 mod add_cards;
 mod collections;
@@ -100,10 +99,6 @@ async fn menu() {
     }
 }
 
-fn read() -> String {
-    read!("{}\n")
-}
-
 fn print_dependencies(id: Id) {
     let card = SavedCard::from_id(&id).unwrap();
     let dependencies = card.dependency_ids();
@@ -142,8 +137,7 @@ pub fn authenticate() -> LoginInfo {
     let res = request_device_code().unwrap();
     open(&res.verification_uri).unwrap();
     clear_terminal();
-    println!("enter code in browser: {}", &res.user_code);
-    read();
+    notify(format!("enter code in browser: {}", &res.user_code));
     let token = poll_for_token(&res.device_code, res.interval);
     token
 }

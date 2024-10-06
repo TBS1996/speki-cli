@@ -1,12 +1,15 @@
-use crate::read;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{categories::Category, common::Id, SavedCard};
 
 #[allow(dead_code)]
-pub fn notify(msg: &str) {
+pub fn notify(msg: impl Into<String>) {
     clear_terminal();
-    println!("{}", msg);
-    read();
+    Select::with_theme(&ColorfulTheme::default())
+        .with_prompt(msg.into())
+        .items(&["continue"])
+        .default(0)
+        .interact()
+        .unwrap();
 }
 
 pub fn select_from_all_cards() -> Option<Id> {
@@ -65,7 +68,7 @@ pub fn get_input_opt(prompt: &str) -> Option<String> {
     }
 }
 
-pub fn _get_input(prompt: &str) -> String {
+pub fn get_input(prompt: &str) -> String {
     get_input_opt(prompt).unwrap_or_default()
 }
 

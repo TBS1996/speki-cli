@@ -2117,17 +2117,13 @@ dependencies = [
  "speki-core",
  "strum 0.24.1",
  "strum_macros 0.24.3",
- "text_io",
  "tokio",
- "tordir",
  "uuid",
 ]
 
 [[package]]
 name = "speki-core"
 version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db57b409d5808cc8fdff7d93125efcf2b4ba856f66086ae1fac13236c379fec1"
 dependencies = [
  "dirs",
  "futures",
@@ -2263,12 +2259,6 @@ checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
 ]
-
-[[package]]
-name = "text_io"
-version = "0.1.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5f0c8eb2ad70c12a6a69508f499b3051c924f4b1cfeae85bfad96e6bc5bba46"
 
 [[package]]
 name = "textwrap"
@@ -2447,12 +2437,6 @@ dependencies = [
  "toml_datetime",
  "winnow",
 ]
-
-[[package]]
-name = "tordir"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c22ccf32af5d06c321cfb209ba235be5388434f6b079a0b4e7147350015d0c89"
 
 [[package]]
 name = "tower"

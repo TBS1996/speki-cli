@@ -1,7 +1,7 @@
 use crate::{
     add_cards::add_card,
-    print_dependencies, read,
-    utils::{clear_terminal, select_from_all_cards},
+    print_dependencies,
+    utils::{clear_terminal, get_input, notify, select_from_all_cards},
 };
 use dialoguer::{theme::ColorfulTheme, Select};
 use speki_core::{common::Id, reviews::Recall};
@@ -118,13 +118,11 @@ pub fn review_old() {
 pub fn review(cards: Vec<Id>) {
     if cards.is_empty() {
         clear_terminal();
-        println!("nothing to review!");
-        read();
+        notify("nothing to review!");
         return;
     } else {
         clear_terminal();
-        println!("reviewing {} cards", cards.len());
-        read();
+        notify(format!("reviewing {} cards", cards.len()));
     }
 
     for card in cards {
@@ -176,7 +174,7 @@ pub fn review(cards: Vec<Id>) {
                 print_dependencies(card.id());
             }
 
-            let txt: String = read();
+            let txt: String = get_input("");
 
             let Ok(action) = txt.parse::<ReviewAction>() else {
                 clear_terminal();
@@ -220,9 +218,7 @@ pub fn review(cards: Vec<Id>) {
                 ReviewAction::Exit => return,
                 ReviewAction::Skip => break,
                 ReviewAction::Help => {
-                    clear_terminal();
-                    println!("{}", review_help());
-                    read();
+                    notify(format!("{}", review_help()));
                 }
             }
 

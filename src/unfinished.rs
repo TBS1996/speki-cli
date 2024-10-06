@@ -1,15 +1,14 @@
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::SavedCard;
 
-use crate::{read, utils::clear_terminal};
+use crate::utils::{clear_terminal, notify};
 
 pub fn unfinished() {
     let filter = "finished == false & suspended == false".to_string();
     let cards = speki_core::cards_filtered(filter);
     if cards.is_empty() {
         clear_terminal();
-        println!("no unfinished cards!");
-        read();
+        notify("no unfinished cards");
         return;
     }
 

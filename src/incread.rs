@@ -7,8 +7,8 @@ use std::fs::{self, read_to_string};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::utils::{choose_folder, get_lines};
-use crate::{read, utils::clear_terminal};
+use crate::utils::{choose_folder, get_input, get_lines};
+use crate::utils::{clear_terminal, notify};
 
 pub fn inc_path() -> PathBuf {
     let path = get_share_path().join("texts");
@@ -89,9 +89,7 @@ pub fn textstuff() {
     clear_terminal();
     let paths = get_text_files(&inc_path()).unwrap();
     if paths.is_empty() {
-        println!("no available texts.");
-        println!("click 'inspect texts' in main menu and add textfiles to get started");
-        read();
+        notify(format!("no available texts. click 'inspect texts' in main menu and add textfiles to get started"));
         return;
     }
 
@@ -142,7 +140,7 @@ pub fn textstuff() {
         match idx {
             0 => {
                 pos = 0;
-                let input = read();
+                let input = get_input("");
                 if let Some((front, back)) = input.split_once(";") {
                     speki_core::add_card(front.to_string(), back.to_string(), &category);
                 } else {
