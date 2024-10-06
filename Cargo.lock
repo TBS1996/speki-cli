@@ -2103,7 +2103,7 @@ dependencies = [
 
 [[package]]
 name = "speki-cli"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "clap 4.5.17",
  "cli-justify",
@@ -2125,7 +2125,9 @@ dependencies = [
 
 [[package]]
 name = "speki-core"
-version = "0.1.7"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db57b409d5808cc8fdff7d93125efcf2b4ba856f66086ae1fac13236c379fec1"
 dependencies = [
  "dirs",
  "futures",

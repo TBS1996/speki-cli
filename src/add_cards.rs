@@ -1,8 +1,18 @@
+use std::{fs::read_to_string, path::PathBuf, str::FromStr};
+
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
-use speki_core::{categories::Category, common::Id};
+use speki_core::{
+    card::Card,
+    categories::Category,
+    common::{filename_sanitizer, Id},
+    SavedCard,
+};
 
-use crate::utils::{choose_folder, clear_terminal};
+use crate::{
+    incread::textstuff,
+    utils::{choose_folder, clear_terminal, get_input_opt, notify},
+};
 
 pub fn add_cards() {
     let category = choose_folder();
@@ -52,4 +62,73 @@ pub fn add_card(category: &Category) -> Option<Id> {
         speki_core::add_card(front, back, category)
     }
     .into()
+}
+
+pub fn add_cards_menu() {
+    let items = vec![
+        "New cards",
+        "Unfinished cards",
+        "Incremental reading",
+        "Import",
+        "exit",
+    ];
+
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .items(&items)
+        .default(0)
+        .interact()
+        .unwrap();
+
+    match selection {
+        0 => crate::add_cards::add_cards(),
+        1 => crate::unfinished::unfinished(),
+        2 => textstuff(),
+        3 => import(),
+        4 => return,
+        _ => panic!(),
+    }
+}
+
+fn import() {
+    notify("pick a csv file where the left side is the question and the right side the answer");
+
+    if let Some(path) = get_input_opt("file path") {
+        let path = match PathBuf::from_str(&path) {
+            Ok(path) => path,
+            Err(e) => {
+                notify(&format!("failed to parse input as a valid path: {:?}", e));
+                return;
+            }
+        };
+
+        if !path.exists() {
+            notify("provided path does not point to a file");
+            return;
+        }
+
+        let import: String = read_to_string(&path).unwrap();
+        let filename = path.file_stem().unwrap().to_str().unwrap();
+        let filename = filename_sanitizer(filename);
+        let category = Category::default().join("imports").join(&filename);
+
+        let mut cards = vec![];
+
+        for line in import.lines() {
+            let (front, back) = line.split_once(";").unwrap();
+            let card = Card::new_simple(front.to_string(), back.to_string());
+            cards.push(card);
+        }
+
+        let card_qty = cards.len();
+
+        for card in cards {
+            SavedCard::new_at(card, &category);
+        }
+
+        notify(&format!(
+            "imported {} cards to following path: {:#?}",
+            card_qty,
+            category.as_path()
+        ));
+    }
 }

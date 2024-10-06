@@ -2,7 +2,8 @@ use crate::read;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{categories::Category, common::Id, SavedCard};
 
-pub fn _notify(msg: &str) {
+#[allow(dead_code)]
+pub fn notify(msg: &str) {
     clear_terminal();
     println!("{}", msg);
     read();
@@ -80,3 +81,16 @@ pub fn choose_folder() -> Category {
 
     Category::load_all(None).remove(select_item(&cats))
 }
+
+/*
+
+diff reasons we can't sync:
+
+1. not signed in
+2. no repo
+3. repo, but remote not set
+4. remote set, but no access
+
+
+
+*/

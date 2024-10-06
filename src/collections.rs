@@ -1,5 +1,5 @@
 use crate::utils::{get_input_opt, select_item};
-use speki_core::collections::Collection;
+use speki_core::collections::{add, commit, push, Collection};
 
 pub fn col_stuff() {
     loop {
@@ -29,6 +29,7 @@ pub fn col_stuff() {
 }
 
 fn manage_col(col: Collection) {
+    let repo = &col.repo;
     let opts = ["pull", "push", "return"];
 
     match select_item(&opts) {
@@ -37,9 +38,9 @@ fn manage_col(col: Collection) {
         }
         1 => {
             // col.pull();
-            col.add();
-            col.commit().unwrap();
-            col.push().unwrap();
+            add(repo);
+            commit(repo).unwrap();
+            push(repo).unwrap();
         }
         2 => {}
         _ => panic!(),

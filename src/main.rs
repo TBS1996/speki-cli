@@ -1,9 +1,11 @@
+use add_cards::add_cards_menu;
 use clap::Parser;
 use collections::col_stuff;
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
-use incread::{inc_path, textstuff};
+use incread::inc_path;
 use opener::open;
+use review::review_menu;
 use speki_core::{
     categories::Category,
     common::Id,
@@ -47,29 +49,6 @@ fn inspect_files() {
     }
 }
 
-fn add_cards_menu() {
-    let items = vec![
-        "New cards",
-        "Unfinished cards",
-        "Incremental reading",
-        "exit",
-    ];
-
-    let selection = Select::with_theme(&ColorfulTheme::default())
-        .items(&items)
-        .default(0)
-        .interact()
-        .unwrap();
-
-    match selection {
-        0 => crate::add_cards::add_cards(),
-        1 => crate::unfinished::unfinished(),
-        2 => textstuff(),
-        3 => return,
-        _ => panic!(),
-    }
-}
-
 async fn menu() {
     let mut login = LoginInfo::load();
 
@@ -92,6 +71,7 @@ async fn menu() {
             "Add cards",
             "Manage collections",
             "Inspect files",
+            "sync",
             sign,
         ];
 
@@ -102,11 +82,16 @@ async fn menu() {
             .unwrap();
 
         match selection {
-            0 => crate::review::review(),
+            0 => review_menu(),
             1 => add_cards_menu(),
             2 => col_stuff(),
             3 => inspect_files(),
-            4 => match login.take() {
+            4 => {
+                if let Some(login) = LoginInfo::load() {
+                    speki_core::github::sync(&login);
+                }
+            }
+            5 => match login.take() {
                 Some(login) => login.delete_login(),
                 None => login = Some(authenticate()),
             },

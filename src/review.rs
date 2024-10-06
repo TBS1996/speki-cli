@@ -1,6 +1,10 @@
-use crate::{print_dependencies, read, utils::clear_terminal, utils::select_from_all_cards};
+use crate::{
+    add_cards::add_card,
+    print_dependencies, read,
+    utils::{clear_terminal, select_from_all_cards},
+};
 use dialoguer::{theme::ColorfulTheme, Select};
-use speki_core::reviews::Recall;
+use speki_core::{common::Id, reviews::Recall};
 use std::str::FromStr;
 
 fn review_help() -> &'static str {
@@ -78,24 +82,40 @@ impl FromStr for ReviewAction {
     }
 }
 
-pub fn review() {
+pub fn review_menu() {
+    let items = vec!["Old cards", "Pending cards", "exit"];
+
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .items(&items)
+        .default(0)
+        .interact()
+        .unwrap();
+
+    match selection {
+        0 => review_old(),
+        1 => review_new(),
+        2 => return,
+        _ => panic!(),
+    }
+}
+
+pub fn review_new() {
     let filter =
         "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5".to_string();
+    let cards = speki_core::SavedCard::load_pending(Some(filter.to_owned()));
 
-    /*
-    let filter: String = Input::new()
-        .with_prompt("filter")
-        .allow_empty(true)
-        .with_initial_text(filter)
-        .interact_text()
-        .expect("Failed to read input");
+    review(cards);
+}
 
-    if filter.is_empty() {
-        return;
-    }
-    */
+pub fn review_old() {
+    let filter =
+        "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5".to_string();
+    let cards = speki_core::SavedCard::load_non_pending(Some(filter.to_owned()));
 
-    let cards = speki_core::cards_filtered(filter);
+    review(cards);
+}
+
+pub fn review(cards: Vec<Id>) {
     if cards.is_empty() {
         clear_terminal();
         println!("nothing to review!");
@@ -175,14 +195,9 @@ pub fn review() {
                 ReviewAction::Grade(grade) => speki_core::review(card.id(), grade),
                 ReviewAction::NewDependency => {
                     println!("add dependency");
-                    let s: String = read();
-                    let id = if let Some((front, back)) = s.split_once(";") {
-                        speki_core::add_card(front.to_string(), back.to_string(), card.category())
-                    } else {
-                        speki_core::add_unfinished(s, card.category())
-                    };
-
-                    speki_core::set_dependency(card.id(), id);
+                    if let Some(new_card) = add_card(card.category()) {
+                        speki_core::set_dependency(card.id(), new_card);
+                    }
                 }
                 ReviewAction::OldDependency => {
                     if let Some(dep) = select_from_all_cards() {
@@ -191,14 +206,9 @@ pub fn review() {
                 }
                 ReviewAction::NewDependent => {
                     println!("add dependent");
-                    let s: String = read();
-                    let id = if let Some((front, back)) = s.split_once(";") {
-                        speki_core::add_card(front.to_string(), back.to_string(), card.category())
-                    } else {
-                        speki_core::add_unfinished(s, card.category())
-                    };
-
-                    speki_core::set_dependency(id, card.id());
+                    if let Some(new_card) = add_card(card.category()) {
+                        speki_core::set_dependency(new_card, card.id());
+                    }
                 }
                 ReviewAction::OldDependent => {
                     if let Some(dep) = select_from_all_cards() {
