@@ -24,3 +24,6 @@ opener = "0.7.2"
 console = "0.15.8"
 tokio = { version = "1.40.0", features = ["full"] }
 cli-justify = "0.1.3"
+cli-pdf-to-text = "0.1.3"
+cli-epub-to-text = "0.1.3"
+wikipedia = "0.4.0"

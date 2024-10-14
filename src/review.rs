@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 fn review_help() -> &'static str {
     r#"
-    
+
 possible commands:
 
 1 =>        failed to recall backside, where the backside info seems new to you
@@ -29,15 +29,31 @@ help | ? => open this help message
 }
 
 #[derive(Clone)]
-enum ReviewAction {
-    Grade(Recall),
+enum CardAction {
     NewDependency,
     OldDependency,
     NewDependent,
     OldDependent,
     Edit,
     Delete,
-    Exit,
+}
+
+impl CardAction {
+    fn next_card(&self) -> bool {
+        match self {
+            CardAction::NewDependency => false,
+            CardAction::OldDependency => false,
+            CardAction::NewDependent => false,
+            CardAction::OldDependent => false,
+            CardAction::Delete => true,
+            CardAction::Edit => false,
+        }
+    }
+}
+
+#[derive(Clone)]
+enum ReviewAction {
+    Grade(Recall),
     Help,
     Skip,
 }
@@ -47,15 +63,24 @@ impl ReviewAction {
         match self {
             ReviewAction::Grade(_) => true,
             ReviewAction::Skip => true,
-            ReviewAction::Delete => true,
-            ReviewAction::NewDependency => false,
-            ReviewAction::OldDependency => false,
-            ReviewAction::NewDependent => false,
-            ReviewAction::OldDependent => false,
-            ReviewAction::Edit => false,
-            ReviewAction::Exit => false,
             ReviewAction::Help => false,
         }
+    }
+}
+
+impl FromStr for CardAction {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.trim() {
+            "y" => Self::OldDependency,
+            "Y" => Self::NewDependency,
+            "t" => Self::OldDependent,
+            "T" => Self::NewDependent,
+            "edit" => Self::Edit,
+            "delete" => Self::Delete,
+            _ => return Err(()),
+        })
     }
 }
 
@@ -68,13 +93,6 @@ impl FromStr for ReviewAction {
             "2" => Self::Grade(Recall::Late),
             "3" => Self::Grade(Recall::Some),
             "4" => Self::Grade(Recall::Perfect),
-            "y" => Self::OldDependency,
-            "Y" => Self::NewDependency,
-            "t" => Self::OldDependent,
-            "T" => Self::NewDependent,
-            "edit" => Self::Edit,
-            "delete" => Self::Delete,
-            "exit" => Self::Exit,
             "help" | "?" => Self::Help,
             "skip" | "s" => Self::Skip,
             _ => return Err(()),
@@ -101,7 +119,7 @@ pub fn review_menu() {
 
 pub fn review_new() {
     let filter =
-        "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5".to_string();
+        "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5 & lapses < 4".to_string();
     let cards = speki_core::SavedCard::load_pending(Some(filter.to_owned()));
 
     review(cards);
@@ -109,7 +127,7 @@ pub fn review_new() {
 
 pub fn review_old() {
     let filter =
-        "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5".to_string();
+        "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5 & lapses < 2".to_string();
     let cards = speki_core::SavedCard::load_non_pending(Some(filter.to_owned()));
 
     review(cards);
@@ -176,7 +194,53 @@ pub fn review(cards: Vec<Id>) {
 
             let txt: String = get_input("");
 
-            let Ok(action) = txt.parse::<ReviewAction>() else {
+            if let Ok(action) = txt.parse::<ReviewAction>() {
+                match action.clone() {
+                    ReviewAction::Grade(grade) => speki_core::review(card.id(), grade),
+                    ReviewAction::Skip => break,
+                    ReviewAction::Help => {
+                        notify(format!("{}", review_help()));
+                    }
+                }
+
+                if action.next_card() {
+                    break;
+                } else {
+                    continue;
+                };
+            } else if let Ok(action) = txt.parse::<CardAction>() {
+                match action.clone() {
+                    CardAction::NewDependency => {
+                        println!("add dependency");
+                        if let Some(new_card) = add_card(card.category()) {
+                            speki_core::set_dependency(card.id(), new_card);
+                        }
+                    }
+                    CardAction::OldDependency => {
+                        if let Some(dep) = select_from_all_cards() {
+                            speki_core::set_dependency(card.id(), dep);
+                        }
+                    }
+                    CardAction::NewDependent => {
+                        println!("add dependent");
+                        if let Some(new_card) = add_card(card.category()) {
+                            speki_core::set_dependency(new_card, card.id());
+                        }
+                    }
+                    CardAction::OldDependent => {
+                        if let Some(dep) = select_from_all_cards() {
+                            speki_core::set_dependency(dep, card.id());
+                        }
+                    }
+                    CardAction::Edit => speki_core::edit(card.id()),
+                    CardAction::Delete => speki_core::delete(card.id()),
+                }
+                if action.next_card() {
+                    break;
+                } else {
+                    continue;
+                };
+            } else {
                 clear_terminal();
 
                 Select::with_theme(&ColorfulTheme::default())
@@ -186,45 +250,6 @@ pub fn review(cards: Vec<Id>) {
                     .interact()
                     .expect("Failed to make selection");
 
-                continue;
-            };
-
-            match action.clone() {
-                ReviewAction::Grade(grade) => speki_core::review(card.id(), grade),
-                ReviewAction::NewDependency => {
-                    println!("add dependency");
-                    if let Some(new_card) = add_card(card.category()) {
-                        speki_core::set_dependency(card.id(), new_card);
-                    }
-                }
-                ReviewAction::OldDependency => {
-                    if let Some(dep) = select_from_all_cards() {
-                        speki_core::set_dependency(card.id(), dep);
-                    }
-                }
-                ReviewAction::NewDependent => {
-                    println!("add dependent");
-                    if let Some(new_card) = add_card(card.category()) {
-                        speki_core::set_dependency(new_card, card.id());
-                    }
-                }
-                ReviewAction::OldDependent => {
-                    if let Some(dep) = select_from_all_cards() {
-                        speki_core::set_dependency(dep, card.id());
-                    }
-                }
-                ReviewAction::Edit => speki_core::edit(card.id()),
-                ReviewAction::Delete => speki_core::delete(card.id()),
-                ReviewAction::Exit => return,
-                ReviewAction::Skip => break,
-                ReviewAction::Help => {
-                    notify(format!("{}", review_help()));
-                }
-            }
-
-            if action.next_card() {
-                break;
-            } else {
                 continue;
             };
         }

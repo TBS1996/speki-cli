@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, path::PathBuf, str::FromStr};
+use std::{fs::read_to_string, io::Write, path::PathBuf, str::FromStr};
 
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
@@ -10,7 +10,7 @@ use speki_core::{
 };
 
 use crate::{
-    incread::textstuff,
+    incread::{inc_path, textstuff},
     utils::{choose_folder, clear_terminal, get_input_opt, notify},
 };
 
@@ -64,10 +64,11 @@ pub fn add_card(category: &Category) -> Option<Id> {
     .into()
 }
 
-pub fn add_cards_menu() {
+pub async fn add_cards_menu() {
     let items = vec![
         "New cards",
         "Unfinished cards",
+        "Add wikipedia article",
         "Incremental reading",
         "Import",
         "exit",
@@ -82,10 +83,51 @@ pub fn add_cards_menu() {
     match selection {
         0 => crate::add_cards::add_cards(),
         1 => crate::unfinished::unfinished(),
-        2 => textstuff(),
-        3 => import(),
-        4 => return,
+        2 => add_wikipedia(),
+        3 => textstuff(),
+        4 => import(),
+        5 => return,
         _ => panic!(),
+    }
+}
+
+fn add_wikipedia() {
+    use std::fs::File;
+    use std::thread;
+    use wikipedia::http::default::Client;
+    use wikipedia::Wikipedia;
+
+    let Some(input) = get_input_opt("wikipedia article") else {
+        return;
+    };
+
+    let handle = thread::spawn(move || {
+        let wiki = Wikipedia::<Client>::default();
+        let page = wiki.page_from_title(input);
+        let content = match page.get_content() {
+            Ok(content) => content,
+            Err(_) => return Err("unable to fetch wikipedia article"),
+        };
+        let title = match page.get_title() {
+            Ok(title) => title,
+            Err(_) => return Err("unable to fetch wikipedia article"),
+        };
+        Ok((title, content))
+    });
+
+    match handle.join() {
+        Ok(Ok((title, content))) => {
+            let path = inc_path().join(&title);
+            let mut file = File::create(&path).unwrap();
+            file.write_all(content.as_bytes()).unwrap();
+            notify(format!("imported following title: {}", title));
+        }
+        Ok(Err(msg)) => {
+            notify(msg);
+        }
+        Err(_) => {
+            notify("failed to join thread");
+        }
     }
 }
 

@@ -82,7 +82,7 @@ async fn menu() {
 
         match selection {
             0 => review_menu(),
-            1 => add_cards_menu(),
+            1 => add_cards_menu().await,
             2 => col_stuff(),
             3 => inspect_files(),
             4 => {
