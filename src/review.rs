@@ -117,18 +117,23 @@ pub fn review_menu() {
     }
 }
 
+use rand::prelude::*;
+
+const DEFAULT_FILTER: &'static str =
+    "recall < 0.85 & finished == true & suspended == false & resolved == true & minrecrecall > 0.85 & minrecstab > 10 & lastreview > 0.5 & lapses < 2";
+
 pub fn review_new() {
-    let filter =
-        "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5 & lapses < 4".to_string();
-    let cards = speki_core::SavedCard::load_pending(Some(filter.to_owned()));
+    let filter = DEFAULT_FILTER.to_string();
+    let mut cards = speki_core::SavedCard::load_pending(Some(filter.to_owned()));
+    cards.shuffle(&mut thread_rng());
 
     review(cards);
 }
 
 pub fn review_old() {
-    let filter =
-        "recall < 0.9 & finished == true & suspended == false & resolved == true & minrecrecall > 0.9 & minrecstab > 10 & lastreview > 0.5 & lapses < 2".to_string();
-    let cards = speki_core::SavedCard::load_non_pending(Some(filter.to_owned()));
+    let filter = DEFAULT_FILTER.to_string();
+    let mut cards = speki_core::SavedCard::load_non_pending(Some(filter.to_owned()));
+    cards.shuffle(&mut thread_rng());
 
     review(cards);
 }
