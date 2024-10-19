@@ -110,6 +110,11 @@ fn print_dependencies(id: Id) {
     for id in dependencies {
         println!("{}", SavedCard::from_id(id).unwrap().front_text());
     }
+
+    println!("{}", style("dependendents").bold());
+    for id in speki_core::get_cached_dependents(id) {
+        println!("{}", SavedCard::from_id(&id).unwrap().front_text());
+    }
     println!();
 }
 
