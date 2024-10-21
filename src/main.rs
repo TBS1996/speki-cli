@@ -5,15 +5,16 @@ use console::style;
 use dialoguer::{theme::ColorfulTheme, Select};
 use incread::inc_path;
 use opener::open;
-use review::review_menu;
+use review::{review_menu, view_card};
 use speki_core::{
     categories::Category,
     common::Id,
+    concept::Concept,
     github::{poll_for_token, request_device_code, LoginInfo},
     paths::{config_dir, get_cards_path, get_review_path},
     SavedCard,
 };
-use utils::{clear_terminal, notify};
+use utils::{clear_terminal, notify, select_from_all_cards};
 
 mod add_cards;
 mod collections;
@@ -71,6 +72,7 @@ async fn menu() {
             "Manage collections",
             "Inspect files",
             "sync",
+            "view card",
             sign,
         ];
 
@@ -90,7 +92,12 @@ async fn menu() {
                     speki_core::github::sync(&login);
                 }
             }
-            5 => match login.take() {
+            5 => {
+                if let Some(card) = select_from_all_cards() {
+                    view_card(card);
+                }
+            }
+            6 => match login.take() {
                 Some(login) => login.delete_login(),
                 None => login = Some(authenticate()),
             },
@@ -99,22 +106,30 @@ async fn menu() {
     }
 }
 
-fn print_dependencies(id: Id) {
+fn print_card_info(id: Id) {
     let card = SavedCard::from_id(&id).unwrap();
     let dependencies = card.dependency_ids();
-    if dependencies.is_empty() {
-        return;
+    let dependents = speki_core::get_cached_dependents(id);
+
+    if let Some(concept) = card.concept() {
+        let concept = Concept::load(concept).unwrap();
+        println!("concept: {}", concept.name);
     }
 
-    println!("{}", style("dependencies").bold());
-    for id in dependencies {
-        println!("{}", SavedCard::from_id(id).unwrap().front_text());
+    if !dependencies.is_empty() {
+        println!("{}", style("dependencies").bold());
+        for id in dependencies {
+            println!("{}", SavedCard::from_id(id).unwrap().print());
+        }
     }
 
-    println!("{}", style("dependendents").bold());
-    for id in speki_core::get_cached_dependents(id) {
-        println!("{}", SavedCard::from_id(&id).unwrap().front_text());
+    if !dependents.is_empty() {
+        println!("{}", style("dependendents").bold());
+        for id in dependents {
+            println!("{}", SavedCard::from_id(&id).unwrap().print());
+        }
     }
+
     println!();
 }
 
@@ -125,6 +140,8 @@ struct Cli {
     add: Option<String>,
     #[arg(short, long)]
     filter: Option<String>,
+    #[arg(short, long)]
+    concept: Option<String>,
     #[arg(short, long)]
     list: bool,
     #[arg(short, long)]
@@ -174,6 +191,8 @@ async fn main() {
         let id: uuid::Uuid = id.parse().unwrap();
         let x = speki_core::SavedCard::from_id(&id).unwrap().recall_rate();
         dbg!(x);
+    } else if cli.concept.is_some() {
+        speki_core::concept::Concept::create(cli.concept.unwrap());
     } else {
         menu().await;
     }

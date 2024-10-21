@@ -18,8 +18,7 @@ pub fn unfinished() {
             clear_terminal();
 
             let input: String = Input::new()
-                .with_prompt(card.front_text())
-                .with_initial_text(card.back_text())
+                .with_prompt(card.print())
                 .allow_empty(true)
                 .interact_text()
                 .expect("Failed to read input");
@@ -32,11 +31,9 @@ pub fn unfinished() {
                 .interact()
                 .expect("Failed to make selection");
 
-            card.set_back_text(&input);
-
             match selection {
                 0 => {
-                    card.set_finished(true);
+                    card.set_type_normal(card.print(), input);
                     break;
                 }
                 1 => continue,

@@ -1,5 +1,10 @@
 use dialoguer::{theme::ColorfulTheme, Input, Select};
-use speki_core::{categories::Category, common::Id, SavedCard};
+use speki_core::{
+    categories::Category,
+    common::Id,
+    concept::{Attribute, AttributeId, Concept, ConceptId},
+    SavedCard,
+};
 
 #[allow(dead_code)]
 pub fn notify(msg: impl Into<String>) {
@@ -12,9 +17,37 @@ pub fn notify(msg: impl Into<String>) {
         .unwrap();
 }
 
+pub fn select_from_all_concepts() -> Option<ConceptId> {
+    enumselector::select_item_with_formatter(Concept::load_all(), |concept: &Concept| {
+        concept.name.clone()
+    })?
+    .id
+    .into()
+}
+
+pub fn select_from_attributes(concept: ConceptId) -> Option<AttributeId> {
+    enumselector::select_item_with_formatter(
+        Attribute::load_from_concept(concept),
+        |attr: &Attribute| attr.pattern().to_owned(),
+    )?
+    .id
+    .into()
+}
+
+pub fn select_from_cards(cards: Vec<Id>) -> Option<Id> {
+    let cards: Vec<SavedCard> = cards
+        .into_iter()
+        .map(|id| SavedCard::from_id(&id).unwrap())
+        .collect();
+
+    enumselector::select_item_with_formatter(cards, |card: &SavedCard| card.print().to_owned())?
+        .id()
+        .into()
+}
+
 pub fn select_from_all_cards() -> Option<Id> {
     enumselector::select_item_with_formatter(SavedCard::load_all_cards(), |card: &SavedCard| {
-        card.front_text().to_owned()
+        card.print().to_owned()
     })?
     .id()
     .into()
