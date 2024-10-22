@@ -8,7 +8,7 @@ use opener::open;
 use review::{review_menu, view_card};
 use speki_core::{
     categories::Category,
-    common::Id,
+    common::CardId,
     concept::Concept,
     github::{poll_for_token, request_device_code, LoginInfo},
     paths::{config_dir, get_cards_path, get_review_path},
@@ -94,7 +94,7 @@ async fn menu() {
             }
             5 => {
                 if let Some(card) = select_from_all_cards() {
-                    view_card(card);
+                    view_card(card, false);
                 }
             }
             6 => match login.take() {
@@ -106,7 +106,7 @@ async fn menu() {
     }
 }
 
-fn print_card_info(id: Id) {
+fn print_card_info(id: CardId) {
     let card = SavedCard::from_id(&id).unwrap();
     let dependencies = card.dependency_ids();
     let dependents = speki_core::get_cached_dependents(id);
@@ -119,14 +119,24 @@ fn print_card_info(id: Id) {
     if !dependencies.is_empty() {
         println!("{}", style("dependencies").bold());
         for id in dependencies {
-            println!("{}", SavedCard::from_id(id).unwrap().print());
+            println!(
+                "{}",
+                SavedCard::from_id(&id)
+                    .map(|card| card.print())
+                    .unwrap_or_else(|| format!("missing card for dependency: {id}"))
+            );
         }
     }
 
     if !dependents.is_empty() {
         println!("{}", style("dependendents").bold());
         for id in dependents {
-            println!("{}", SavedCard::from_id(&id).unwrap().print());
+            println!(
+                "{}",
+                SavedCard::from_id(&id)
+                    .map(|card| card.print())
+                    .unwrap_or_else(|| format!("missing card for dependent: {id}"))
+            );
         }
     }
 
@@ -152,6 +162,8 @@ struct Cli {
     debug: bool,
     #[arg(long)]
     recall: Option<String>,
+    #[arg(long)]
+    healthcheck: bool,
 }
 
 pub fn authenticate() -> LoginInfo {
@@ -182,17 +194,20 @@ async fn main() {
     } else if cli.graph {
         println!("{}", speki_core::as_graph());
     } else if cli.prune {
-        speki_core::prune_dependencies();
+        todo!()
     } else if cli.debug {
         //speki_core::fetch_repos();
         // speki_core::categories::Category::load_all();
     } else if cli.recall.is_some() {
         let id = cli.recall.unwrap();
         let id: uuid::Uuid = id.parse().unwrap();
+        let id = CardId(id);
         let x = speki_core::SavedCard::from_id(&id).unwrap().recall_rate();
         dbg!(x);
     } else if cli.concept.is_some() {
         speki_core::concept::Concept::create(cli.concept.unwrap());
+    } else if cli.healthcheck {
+        speki_core::health_check();
     } else {
         menu().await;
     }

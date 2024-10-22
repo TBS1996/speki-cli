@@ -1,7 +1,7 @@
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{
     categories::Category,
-    common::Id,
+    common::CardId,
     concept::{Attribute, AttributeId, Concept, ConceptId},
     SavedCard,
 };
@@ -34,7 +34,7 @@ pub fn select_from_attributes(concept: ConceptId) -> Option<AttributeId> {
     .into()
 }
 
-pub fn select_from_cards(cards: Vec<Id>) -> Option<Id> {
+pub fn select_from_cards(cards: Vec<CardId>) -> Option<CardId> {
     let cards: Vec<SavedCard> = cards
         .into_iter()
         .map(|id| SavedCard::from_id(&id).unwrap())
@@ -45,7 +45,7 @@ pub fn select_from_cards(cards: Vec<Id>) -> Option<Id> {
         .into()
 }
 
-pub fn select_from_all_cards() -> Option<Id> {
+pub fn select_from_all_cards() -> Option<CardId> {
     enumselector::select_item_with_formatter(SavedCard::load_all_cards(), |card: &SavedCard| {
         card.print().to_owned()
     })?
@@ -61,7 +61,7 @@ pub fn clear_terminal() {
 
 pub fn get_lines(text: &str, line_width: usize, height: usize, position: usize) -> Vec<String> {
     let mut output = vec![];
-    let lines = my_cli_justify::justify(text, line_width);
+    let lines = cli_justify::justify(text, line_width);
 
     let mut sum = 0;
     for line in lines {
@@ -131,17 +131,14 @@ diff reasons we can't sync:
 
 */
 
-mod my_cli_justify {
+mod cli_justify {
 
     fn split_at_char(s: &str, n: usize) -> (&str, Option<&str>) {
-        let mut char_index = 0;
-
-        for (i, _) in s.char_indices() {
+        for (char_index, (i, _)) in s.char_indices().enumerate() {
             if char_index == n {
                 let (w1, w2) = s.split_at(i);
                 return (w1, Some(w2));
             }
-            char_index += 1;
         }
 
         (s, None)
@@ -191,9 +188,14 @@ mod my_cli_justify {
 
     fn justify_line(line: &[&str], line_width: usize) -> String {
         let word_len: usize = line.iter().map(|s| s.len()).sum();
-        let spaces = line_width - word_len;
+        let spaces = line_width as i64 - word_len as i64;
+        let spaces = spaces.max(0) as usize;
 
-        let line_len_div = if line.len() > 1 { line.len() - 1 } else { 1 };
+        let line_len_div = if (line.len() > 1) {
+            (line.len() - 1)
+        } else {
+            1
+        };
 
         let each_space = spaces / line_len_div;
         let extra_space = spaces % line_len_div;

@@ -5,7 +5,7 @@ use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{
     card::Card,
     categories::Category,
-    common::{filename_sanitizer, Id},
+    common::{filename_sanitizer, CardId},
     SavedCard,
 };
 
@@ -25,7 +25,7 @@ pub fn add_cards() {
     }
 }
 
-pub fn add_card(category: &Category) -> Option<Id> {
+pub fn add_card(category: &Category) -> Option<CardId> {
     let s = style("front").bold();
     let front: String = Input::new()
         .with_prompt(s.to_string())

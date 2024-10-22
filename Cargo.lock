@@ -340,9 +340,9 @@ dependencies = [
 
 [[package]]
 name = "cli-justify"
-version = "0.1.3"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bc39d3272084201e4bc2ba63a4cda8736e182119a7ebc5d7751686230e13331"
+checksum = "2b60afc5d0543f64013899255d415d7b42d21df819f9195b483f146f6ead8785"
 dependencies = [
  "getopts",
 ]
@@ -2695,6 +2695,7 @@ dependencies = [
 name = "speki-core"
 version = "0.1.8"
 dependencies = [
+ "cli-justify",
  "dirs",
  "eyre",
  "futures",
@@ -2702,6 +2703,7 @@ dependencies = [
  "gkquad",
  "graphviz-rust",
  "octocrab",
+ "rayon",
  "samsvar",
  "sanitize-filename",
  "serde",

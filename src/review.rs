@@ -10,12 +10,12 @@ use dialoguer::{theme::ColorfulTheme, Input, Select};
 use rand::prelude::*;
 use speki_core::{
     card::CardType,
-    common::Id,
+    common::CardId,
     concept::{Attribute, Concept},
     reviews::Recall,
     SavedCard,
 };
-use std::{any::Any, str::FromStr};
+use std::{ops::ControlFlow, str::FromStr};
 
 fn review_help() -> &'static str {
     r#"
@@ -54,40 +54,11 @@ enum CardAction {
     SetBackRef,
 }
 
-impl CardAction {
-    fn next_card(&self) -> bool {
-        match self {
-            CardAction::Delete => true,
-            CardAction::NewDependency => false,
-            CardAction::OldDependency => false,
-            CardAction::NewDependent => false,
-            CardAction::OldDependent => false,
-            CardAction::NewConcept => false,
-            CardAction::OldConcept => false,
-            CardAction::NewAttribute => false,
-            CardAction::OldAttribute => false,
-            CardAction::FillAttribute => false,
-            CardAction::SetBackRef => false,
-            CardAction::Edit => false,
-        }
-    }
-}
-
 #[derive(Clone)]
 enum ReviewAction {
     Grade(Recall),
     Help,
     Skip,
-}
-
-impl ReviewAction {
-    fn next_card(&self) -> bool {
-        match self {
-            ReviewAction::Grade(_) => true,
-            ReviewAction::Skip => true,
-            ReviewAction::Help => false,
-        }
-    }
 }
 
 impl FromStr for CardAction {
@@ -164,181 +135,193 @@ pub fn review_old() {
     review(cards);
 }
 
-pub fn view_card(card: Id) {
-    loop {
-        clear_terminal();
-        let card = speki_core::card_from_id(card);
-        let (front, back) = {
-            match card.concept() {
-                None => (card.print(), card.back_text().unwrap().to_string()),
-                Some(concept) => {
-                    let front = format!("which concept: {}", card.print());
-                    let back = Concept::load(concept).unwrap().name;
-                    (front, back)
-                }
-            }
-        };
+fn handle_review_action(card: CardId, action: ReviewAction) -> ControlFlow<()> {
+    let card = SavedCard::from_id(&card).unwrap();
+    match action {
+        ReviewAction::Grade(grade) => {
+            speki_core::review(card.id(), grade);
+            ControlFlow::Break(())
+        }
+        ReviewAction::Skip => ControlFlow::Break(()),
+        ReviewAction::Help => {
+            notify(format!("{}", review_help()));
+            ControlFlow::Continue(())
+        }
+    }
+}
 
-        println!(
-            "recall: {:.1}% stability: {:.2} days",
-            (card.recall_rate().unwrap_or_default() * 100.),
-            card.maturity()
-        );
-        println!();
-        println!("{}", &front);
-        println!("{}", &back);
-        println!();
-        print_card_info(card.id());
+fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
+    let card = SavedCard::from_id(&card).unwrap();
+
+    match action.clone() {
+        CardAction::NewDependency => {
+            println!("add dependency");
+            if let Some(new_card) = add_card(card.category()) {
+                speki_core::set_dependency(card.id(), new_card);
+            }
+        }
+        CardAction::OldDependency => {
+            if let Some(dep) = select_from_all_cards() {
+                speki_core::set_dependency(card.id(), dep);
+            }
+        }
+        CardAction::NewDependent => {
+            println!("add dependent");
+            if let Some(new_card) = add_card(card.category()) {
+                speki_core::set_dependency(new_card, card.id());
+            }
+        }
+        CardAction::OldDependent => {
+            if let Some(dep) = select_from_all_cards() {
+                speki_core::set_dependency(dep, card.id());
+            }
+        }
+        CardAction::OldConcept => {
+            if let Some(concept) = select_from_all_concepts() {
+                speki_core::set_concept(card.id(), concept).unwrap();
+            }
+        }
+        CardAction::NewConcept => {
+            let concept: String = Input::new()
+                .with_prompt("concept name")
+                .allow_empty(true)
+                .interact_text()
+                .expect("Failed to read input");
+
+            if !concept.is_empty() {
+                let id = speki_core::concept::Concept::create(concept);
+                speki_core::set_concept(card.id(), id).unwrap();
+            }
+        }
+
+        CardAction::FillAttribute => {
+            let Some(concept) = card.concept() else {
+                notify("current card must be a concept");
+                return ControlFlow::Continue(());
+            };
+
+            if Attribute::load_from_concept(concept).is_empty() {
+                notify("no attributes for concept. try creating one");
+                return ControlFlow::Continue(());
+            }
+
+            if let Some(attribute) = select_from_attributes(concept) {
+                let attr = Attribute::load(attribute).unwrap();
+                let txt = attr.name(card.id());
+
+                let back: String = Input::new()
+                    .with_prompt(txt)
+                    .allow_empty(true)
+                    .interact_text()
+                    .expect("Failed to read input");
+
+                if back.is_empty() {
+                    return ControlFlow::Continue(());
+                }
+                let data = CardType::new_attribute(attribute, card.id(), back.into());
+                SavedCard::create(data, card.category());
+            }
+        }
+
+        CardAction::OldAttribute => {
+            let mut dependencies: Vec<CardId> = card.dependency_ids().iter().copied().collect();
+            dependencies.retain(|id| SavedCard::from_id(id).unwrap().concept().is_some());
+
+            let dependency = if dependencies.len() == 1 {
+                dbg!(SavedCard::from_id(&dependencies[0]).unwrap())
+            } else if dependencies.is_empty() {
+                notify("must have a concept as a dependency");
+                return ControlFlow::Continue(());
+            } else {
+                if let Some(card) = select_from_cards(dependencies) {
+                    dbg!(SavedCard::from_id(&card).unwrap())
+                } else {
+                    return ControlFlow::Continue(());
+                }
+            };
+
+            let Some(concept) = dependency.concept() else {
+                notify("dependency must be a concept");
+                return ControlFlow::Continue(());
+            };
+
+            if Attribute::load_from_concept(concept).is_empty() {
+                notify("no attributes found for concept. try creating one");
+                return ControlFlow::Continue(());
+            }
+
+            if let Some(attribute) = select_from_attributes(concept) {
+                SavedCard::from_id(&card.id())
+                    .unwrap()
+                    .set_attribute(attribute, dependency.id());
+            }
+        }
+        CardAction::NewAttribute => match card.concept() {
+            Some(concept) => {
+                let pattern: String = Input::new()
+                    .with_prompt("attribute pattern")
+                    .allow_empty(true)
+                    .interact_text()
+                    .expect("Failed to read input");
+                if pattern.is_empty() {
+                    notify("no pattern created");
+                }
+
+                Attribute::create(pattern, concept);
+                notify("new pattern created");
+            }
+            None => notify("current card must be a concept"),
+        },
+        CardAction::SetBackRef => {
+            if let Some(reff) = select_from_all_cards() {
+                let mut card = SavedCard::from_id(&card.id()).unwrap();
+                card.set_ref(reff);
+            }
+        }
+        CardAction::Edit => speki_core::edit(card.id()),
+        CardAction::Delete => {
+            speki_core::delete(card.id());
+            return ControlFlow::Break(());
+        }
+    }
+
+    ControlFlow::Continue(())
+}
+
+pub fn view_card(card: CardId, review_mode: bool) -> ControlFlow<()> {
+    let mut show_backside = !review_mode;
+
+    loop {
+        if print_card(card, show_backside).is_break() {
+            return ControlFlow::Continue(());
+        }
+
+        show_backside = true;
 
         let txt: String = get_input("");
 
-        if let Ok(action) = txt.parse::<CardAction>() {
-            match action.clone() {
-                CardAction::NewDependency => {
-                    println!("add dependency");
-                    if let Some(new_card) = add_card(card.category()) {
-                        speki_core::set_dependency(card.id(), new_card);
-                    }
+        if let Ok(action) = txt.parse::<ReviewAction>() {
+            if review_mode {
+                match handle_review_action(card, action) {
+                    ControlFlow::Continue(_) => continue,
+                    ControlFlow::Break(_) => return ControlFlow::Continue(()),
                 }
-                CardAction::OldDependency => {
-                    if let Some(dep) = select_from_all_cards() {
-                        speki_core::set_dependency(card.id(), dep);
-                    }
-                }
-                CardAction::NewDependent => {
-                    println!("add dependent");
-                    if let Some(new_card) = add_card(card.category()) {
-                        speki_core::set_dependency(new_card, card.id());
-                    }
-                }
-                CardAction::OldDependent => {
-                    if let Some(dep) = select_from_all_cards() {
-                        speki_core::set_dependency(dep, card.id());
-                    }
-                }
-                CardAction::OldConcept => {
-                    if let Some(concept) = select_from_all_concepts() {
-                        speki_core::set_concept(card.id(), concept).unwrap();
-                    }
-                }
-                CardAction::NewConcept => {
-                    let concept: String = Input::new()
-                        .with_prompt("concept name")
-                        .allow_empty(true)
-                        .interact_text()
-                        .expect("Failed to read input");
-
-                    if !concept.is_empty() {
-                        let id = speki_core::concept::Concept::create(concept);
-                        speki_core::set_concept(card.id(), id).unwrap();
-                    }
-                }
-
-                CardAction::FillAttribute => {
-                    let Some(concept) = card.concept() else {
-                        notify("current card must be a concept");
-                        continue;
-                    };
-
-                    if Attribute::load_from_concept(concept).is_empty() {
-                        notify("no attributes for concept. try creating one");
-                        continue;
-                    }
-
-                    if let Some(attribute) = select_from_attributes(concept) {
-                        let attr = Attribute::load(attribute).unwrap();
-                        let txt = attr.name(card.id());
-
-                        let back: String = Input::new()
-                            .with_prompt(txt)
-                            .allow_empty(true)
-                            .interact_text()
-                            .expect("Failed to read input");
-
-                        if back.is_empty() {
-                            continue;
-                        }
-                        let data = CardType::Attribute {
-                            front: None,
-                            back,
-                            attribute,
-                        };
-
-                        SavedCard::create(data, card.category());
-                    }
-                }
-
-                CardAction::OldAttribute => {
-                    let mut dependencies: Vec<Id> = card.dependency_ids().iter().copied().collect();
-                    dependencies.retain(|id| SavedCard::from_id(id).unwrap().concept().is_some());
-
-                    let dependency = if dependencies.len() == 1 {
-                        SavedCard::from_id(&dependencies[0]).unwrap()
-                    } else if dependencies.is_empty() {
-                        notify("must have a concept as a dependency");
-                        continue;
-                    } else {
-                        if let Some(card) = select_from_cards(dependencies) {
-                            dbg!(SavedCard::from_id(&card).unwrap())
-                        } else {
-                            continue;
-                        }
-                    };
-
-                    let Some(concept) = dependency.concept() else {
-                        notify("dependency must be a concept");
-                        continue;
-                    };
-
-                    if Attribute::load_from_concept(concept).is_empty() {
-                        notify("no attributes found for concept. try creating one");
-                        continue;
-                    }
-
-                    if let Some(attribute) = select_from_attributes(concept) {
-                        SavedCard::from_id(&card.id())
-                            .unwrap()
-                            .set_attribute(attribute);
-                    }
-                }
-                CardAction::NewAttribute => match card.concept() {
-                    Some(concept) => {
-                        let pattern: String = Input::new()
-                            .with_prompt("attribute pattern")
-                            .allow_empty(true)
-                            .interact_text()
-                            .expect("Failed to read input");
-                        if pattern.is_empty() {
-                            notify("no pattern created");
-                        }
-
-                        Attribute::create(pattern, concept);
-                        notify("new pattern created");
-                    }
-                    None => notify("current card must be a concept"),
-                },
-                CardAction::SetBackRef => {
-                    if let Some(reff) = select_from_all_cards() {
-                        let mut card = SavedCard::from_id(&card.id()).unwrap();
-                        card.set_ref(reff);
-                    }
-                }
-                CardAction::Edit => speki_core::edit(card.id()),
-                CardAction::Delete => speki_core::delete(card.id()),
             }
-            if action.next_card() {
-                break;
-            } else {
-                continue;
-            };
+        }
+
+        if let Ok(action) = txt.parse::<CardAction>() {
+            match handle_action(card, action) {
+                ControlFlow::Continue(_) => continue,
+                ControlFlow::Break(_) => return ControlFlow::Continue(()),
+            }
         } else {
             if txt.contains("exit") {
-                return;
+                return ControlFlow::Break(());
             }
 
             if txt.contains("find") {
                 if let Some(card) = select_from_all_cards() {
-                    view_card(card);
+                    view_card(card, false);
                 }
 
                 continue;
@@ -352,13 +335,73 @@ pub fn view_card(card: Id) {
                 .default(0)
                 .interact()
                 .expect("Failed to make selection");
-
-            continue;
         };
     }
 }
 
-pub fn review(cards: Vec<Id>) {
+fn print_card(card: CardId, show_backside: bool) -> ControlFlow<()> {
+    clear_terminal();
+    let card = speki_core::card_from_id(card);
+    let (front, back) = {
+        match card.concept() {
+            None => (
+                card.print(),
+                card.back_side()
+                    .map(|bs| bs.to_string())
+                    .unwrap_or_default(),
+            ),
+            Some(concept) => {
+                let front = format!("which concept: {}", card.print());
+                let back = Concept::load(concept).unwrap().name;
+                (front, back)
+            }
+        }
+    };
+
+    let opts = ["reveal answer"];
+
+    println!(
+        "recall: {:.1}%, stability: {:.2} days, card_type: {}",
+        (card.recall_rate().unwrap_or_default() * 100.),
+        card.maturity(),
+        card.card_type().display()
+    );
+    println!();
+    println!("{}", &front);
+    if !show_backside {
+        println!();
+        match Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("")
+            .items(&opts)
+            .default(0)
+            .interact()
+            .expect("Failed to make selection")
+        {
+            0 => {
+                clear_terminal();
+                println!(
+                    "recall: {:.1}%, stability: {:.2} days, card_type: {}",
+                    (card.recall_rate().unwrap_or_default() * 100.),
+                    card.maturity(),
+                    card.card_type().display()
+                );
+                println!();
+                println!("{}", &front);
+                println!();
+                println!("-------------------------------------------------");
+                println!();
+            }
+            _ => return ControlFlow::Break(()),
+        }
+    }
+
+    println!("{}", &back);
+    println!();
+    print_card_info(card.id());
+    ControlFlow::Continue(())
+}
+
+pub fn review(cards: Vec<CardId>) {
     if cards.is_empty() {
         clear_terminal();
         notify("nothing to review!");
@@ -369,240 +412,8 @@ pub fn review(cards: Vec<Id>) {
     }
 
     for card in cards {
-        let mut flag = false;
-
-        loop {
-            clear_terminal();
-            let card = speki_core::card_from_id(card);
-            let (front, back) = {
-                match card.concept() {
-                    None => (card.print(), card.back_text().unwrap().to_string()),
-                    Some(concept) => {
-                        let front = format!("which concept: {}", card.print());
-                        let back = Concept::load(concept).unwrap().name;
-                        (front, back)
-                    }
-                }
-            };
-
-            let opts = ["reveal answer"];
-
-            println!(
-                "recall: {:.1}% stability: {:.2} days",
-                (card.recall_rate().unwrap_or_default() * 100.),
-                card.maturity()
-            );
-            println!();
-            println!("{}", &front);
-            if !flag {
-                println!();
-                match Select::with_theme(&ColorfulTheme::default())
-                    .with_prompt("")
-                    .items(&opts)
-                    .default(0)
-                    .interact()
-                    .expect("Failed to make selection")
-                {
-                    0 => {
-                        flag = true;
-                        clear_terminal();
-                        println!(
-                            "recall: {:.1}% stability: {:.2} days",
-                            (card.recall_rate().unwrap_or_default() * 100.),
-                            card.maturity()
-                        );
-                        println!();
-                        println!("{}", &front);
-                        println!();
-                        println!("-------------------------------------------------");
-                        println!();
-                    }
-                    _ => return,
-                }
-            }
-
-            println!("{}", &back);
-            println!();
-            print_card_info(card.id());
-
-            let txt: String = get_input("");
-
-            if let Ok(action) = txt.parse::<ReviewAction>() {
-                match action.clone() {
-                    ReviewAction::Grade(grade) => speki_core::review(card.id(), grade),
-                    ReviewAction::Skip => break,
-                    ReviewAction::Help => {
-                        notify(format!("{}", review_help()));
-                    }
-                }
-
-                if action.next_card() {
-                    break;
-                } else {
-                    continue;
-                };
-            } else if let Ok(action) = txt.parse::<CardAction>() {
-                match action.clone() {
-                    CardAction::NewDependency => {
-                        println!("add dependency");
-                        if let Some(new_card) = add_card(card.category()) {
-                            speki_core::set_dependency(card.id(), new_card);
-                        }
-                    }
-                    CardAction::OldDependency => {
-                        if let Some(dep) = select_from_all_cards() {
-                            speki_core::set_dependency(card.id(), dep);
-                        }
-                    }
-                    CardAction::NewDependent => {
-                        println!("add dependent");
-                        if let Some(new_card) = add_card(card.category()) {
-                            speki_core::set_dependency(new_card, card.id());
-                        }
-                    }
-                    CardAction::OldDependent => {
-                        if let Some(dep) = select_from_all_cards() {
-                            speki_core::set_dependency(dep, card.id());
-                        }
-                    }
-                    CardAction::OldConcept => {
-                        if let Some(concept) = select_from_all_concepts() {
-                            speki_core::set_concept(card.id(), concept).unwrap();
-                        }
-                    }
-                    CardAction::NewConcept => {
-                        let concept: String = Input::new()
-                            .with_prompt("concept name")
-                            .allow_empty(true)
-                            .interact_text()
-                            .expect("Failed to read input");
-
-                        if !concept.is_empty() {
-                            let id = speki_core::concept::Concept::create(concept);
-                            speki_core::set_concept(card.id(), id).unwrap();
-                        }
-                    }
-                    CardAction::FillAttribute => {
-                        let Some(concept) = card.concept() else {
-                            notify("current card must be a concept");
-                            continue;
-                        };
-
-                        if Attribute::load_from_concept(concept).is_empty() {
-                            notify("no attributes for concept. try creating one");
-                            continue;
-                        }
-
-                        if let Some(attribute) = select_from_attributes(concept) {
-                            let attr = Attribute::load(attribute).unwrap();
-                            let txt = attr.name(card.id());
-
-                            let back: String = Input::new()
-                                .with_prompt(txt)
-                                .allow_empty(true)
-                                .interact_text()
-                                .expect("Failed to read input");
-
-                            if back.is_empty() {
-                                continue;
-                            }
-                            let data = CardType::Attribute {
-                                front: None,
-                                back,
-                                attribute,
-                            };
-
-                            SavedCard::create(data, card.category());
-                        }
-                    }
-
-                    CardAction::SetBackRef => {
-                        if let Some(reff) = select_from_all_cards() {
-                            let mut card = SavedCard::from_id(&card.id()).unwrap();
-                            card.set_ref(reff);
-                        }
-                    }
-
-                    CardAction::OldAttribute => {
-                        let mut dependencies: Vec<Id> =
-                            card.dependency_ids().iter().copied().collect();
-                        dependencies
-                            .retain(|id| SavedCard::from_id(id).unwrap().concept().is_some());
-
-                        let dependency = if dependencies.len() == 1 {
-                            SavedCard::from_id(&dependencies[0]).unwrap()
-                        } else if dependencies.is_empty() {
-                            notify("must have a concept as a dependency");
-                            continue;
-                        } else {
-                            if let Some(card) = select_from_cards(dependencies) {
-                                SavedCard::from_id(&card).unwrap()
-                            } else {
-                                continue;
-                            }
-                        };
-
-                        let Some(concept) = dependency.concept() else {
-                            notify("dependency must be a concept");
-                            continue;
-                        };
-
-                        if Attribute::load_from_concept(concept).is_empty() {
-                            notify("no attributes found for concept. try creating one");
-                            continue;
-                        }
-
-                        if let Some(attribute) = select_from_attributes(concept) {
-                            SavedCard::from_id(&card.id())
-                                .unwrap()
-                                .set_attribute(attribute);
-                        }
-                    }
-
-                    CardAction::NewAttribute => match card.concept() {
-                        Some(concept) => {
-                            let pattern: String = Input::new()
-                                .with_prompt("attribute pattern")
-                                .allow_empty(true)
-                                .interact_text()
-                                .expect("Failed to read input");
-                            if pattern.is_empty() {
-                                notify("no pattern created");
-                            }
-
-                            Attribute::create(pattern, concept);
-                            notify("new pattern created");
-                        }
-                        None => notify("current card must be a concept"),
-                    },
-                    CardAction::Edit => speki_core::edit(card.id()),
-                    CardAction::Delete => speki_core::delete(card.id()),
-                }
-                if action.next_card() {
-                    break;
-                } else {
-                    continue;
-                };
-            } else {
-                if txt.contains("find") {
-                    if let Some(card) = select_from_all_cards() {
-                        view_card(card);
-                    }
-
-                    continue;
-                }
-
-                clear_terminal();
-
-                Select::with_theme(&ColorfulTheme::default())
-                    .with_prompt("write 'help' to see list of possible action")
-                    .items(&["back to card"])
-                    .default(0)
-                    .interact()
-                    .expect("Failed to make selection");
-
-                continue;
-            };
+        if view_card(card, true).is_break() {
+            return;
         }
     }
 }
