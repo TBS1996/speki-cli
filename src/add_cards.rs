@@ -3,7 +3,6 @@ use std::{fs::read_to_string, io::Write, path::PathBuf, str::FromStr};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{
-    card::Card,
     categories::Category,
     common::{filename_sanitizer, CardId},
     SavedCard,
@@ -157,15 +156,11 @@ fn import() {
 
         for line in import.lines() {
             let (front, back) = line.split_once(";").unwrap();
-            let card = Card::new_simple(front.to_string(), back.to_string());
+            let card = speki_core::add_card(front.to_string(), back.to_string(), &category);
             cards.push(card);
         }
 
         let card_qty = cards.len();
-
-        for card in cards {
-            SavedCard::new_at(card, &category);
-        }
 
         notify(&format!(
             "imported {} cards to following path: {:#?}",

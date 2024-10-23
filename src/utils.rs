@@ -1,5 +1,6 @@
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{
+    card::AnyType,
     categories::Category,
     common::CardId,
     concept::{Attribute, AttributeId, Concept, ConceptId},
@@ -35,20 +36,23 @@ pub fn select_from_attributes(concept: ConceptId) -> Option<AttributeId> {
 }
 
 pub fn select_from_cards(cards: Vec<CardId>) -> Option<CardId> {
-    let cards: Vec<SavedCard> = cards
+    let cards: Vec<SavedCard<AnyType>> = cards
         .into_iter()
         .map(|id| SavedCard::from_id(&id).unwrap())
         .collect();
 
-    enumselector::select_item_with_formatter(cards, |card: &SavedCard| card.print().to_owned())?
-        .id()
-        .into()
+    enumselector::select_item_with_formatter(cards, |card: &SavedCard<AnyType>| {
+        card.print().to_owned()
+    })?
+    .id()
+    .into()
 }
 
 pub fn select_from_all_cards() -> Option<CardId> {
-    enumselector::select_item_with_formatter(SavedCard::load_all_cards(), |card: &SavedCard| {
-        card.print().to_owned()
-    })?
+    enumselector::select_item_with_formatter(
+        SavedCard::load_all_cards(),
+        |card: &SavedCard<AnyType>| card.print().to_owned(),
+    )?
     .id()
     .into()
 }

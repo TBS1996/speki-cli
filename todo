@@ -4,10 +4,20 @@ add key-value tag system
 easy backup of reviews
 metadata of cards separately, like suspended, custom tags etc
 more exporting options
-view card interface 
 way to sort unfinished cards by how many cards they'd unlock lol, basically like, if 1 card has 2 unfinished depdencnies, then each dependency "unlocks" 0.5 cards, if two cards depend on 1 unfinished card, that cards unlocks 2 cards, works recursively
 use health trackers to calculate recall rate?
 
 # done
 log in with github
 create remote thing, where you use github to create new repo up there
+view card interface 
+
+
+
+# thoughts
+
+
+
+instance: an actual thing implementation of class, like turkey is instance of country class
+class: like a category of smth
+sub-class: a class where all its instances is also an intsance of its parent class, but not vice versa. e.g., all women are humans, but not all humans are women

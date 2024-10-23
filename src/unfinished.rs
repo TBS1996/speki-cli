@@ -1,6 +1,6 @@
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use rand::seq::SliceRandom;
-use speki_core::SavedCard;
+use speki_core::{card::NormalCard, SavedCard};
 
 use crate::utils::{clear_terminal, notify};
 
@@ -15,13 +15,13 @@ pub fn unfinished() {
 
     cards.shuffle(&mut rand::thread_rng());
 
-    for card in cards {
+    for card_id in cards {
         loop {
-            let mut card = SavedCard::from_id(&card).unwrap();
+            let front = SavedCard::from_id(&card_id).unwrap().print();
             clear_terminal();
 
             let input: String = Input::new()
-                .with_prompt(card.print())
+                .with_prompt(front.clone())
                 .allow_empty(true)
                 .interact_text()
                 .expect("Failed to read input");
@@ -40,7 +40,12 @@ pub fn unfinished() {
 
             match selection {
                 0 => {
-                    card.set_type_normal(card.print(), input);
+                    SavedCard::from_id(&card_id)
+                        .unwrap()
+                        .into_normal(NormalCard {
+                            front,
+                            back: input.into(),
+                        });
                     break;
                 }
                 1 => continue,

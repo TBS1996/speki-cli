@@ -7,6 +7,7 @@ use incread::inc_path;
 use opener::open;
 use review::{review_menu, view_card};
 use speki_core::{
+    card::AnyType,
     categories::Category,
     common::CardId,
     concept::Concept,
@@ -111,8 +112,8 @@ fn print_card_info(id: CardId) {
     let dependencies = card.dependency_ids();
     let dependents = speki_core::get_cached_dependents(id);
 
-    if let Some(concept) = card.concept() {
-        let concept = Concept::load(concept).unwrap();
+    if let AnyType::Concept(ty) = card.card_type() {
+        let concept = Concept::load(ty.concept).unwrap();
         println!("concept: {}", concept.name);
     }
 
