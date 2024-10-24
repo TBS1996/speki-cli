@@ -4,7 +4,7 @@ use speki_core::{
     categories::Category,
     common::CardId,
     concept::{Attribute, AttributeId, Concept, ConceptId},
-    SavedCard,
+    Card,
 };
 
 #[allow(dead_code)]
@@ -36,23 +36,20 @@ pub fn select_from_attributes(concept: ConceptId) -> Option<AttributeId> {
 }
 
 pub fn select_from_cards(cards: Vec<CardId>) -> Option<CardId> {
-    let cards: Vec<SavedCard<AnyType>> = cards
+    let cards: Vec<Card<AnyType>> = cards
         .into_iter()
-        .map(|id| SavedCard::from_id(&id).unwrap())
+        .map(|id| Card::from_id(&id).unwrap())
         .collect();
 
-    enumselector::select_item_with_formatter(cards, |card: &SavedCard<AnyType>| {
-        card.print().to_owned()
-    })?
-    .id()
-    .into()
+    enumselector::select_item_with_formatter(cards, |card: &Card<AnyType>| card.print().to_owned())?
+        .id()
+        .into()
 }
 
 pub fn select_from_all_cards() -> Option<CardId> {
-    enumselector::select_item_with_formatter(
-        SavedCard::load_all_cards(),
-        |card: &SavedCard<AnyType>| card.print().to_owned(),
-    )?
+    enumselector::select_item_with_formatter(Card::load_all_cards(), |card: &Card<AnyType>| {
+        card.print().to_owned()
+    })?
     .id()
     .into()
 }
@@ -195,11 +192,7 @@ mod cli_justify {
         let spaces = line_width as i64 - word_len as i64;
         let spaces = spaces.max(0) as usize;
 
-        let line_len_div = if (line.len() > 1) {
-            (line.len() - 1)
-        } else {
-            1
-        };
+        let line_len_div = if line.len() > 1 { line.len() - 1 } else { 1 };
 
         let each_space = spaces / line_len_div;
         let extra_space = spaces % line_len_div;

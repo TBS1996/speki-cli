@@ -1,6 +1,6 @@
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use rand::seq::SliceRandom;
-use speki_core::{card::NormalCard, SavedCard};
+use speki_core::{card::NormalCard, Card};
 
 use crate::utils::{clear_terminal, notify};
 
@@ -17,7 +17,7 @@ pub fn unfinished() {
 
     for card_id in cards {
         loop {
-            let front = SavedCard::from_id(&card_id).unwrap().print();
+            let front = Card::from_id(&card_id).unwrap().print();
             clear_terminal();
 
             let input: String = Input::new()
@@ -40,12 +40,10 @@ pub fn unfinished() {
 
             match selection {
                 0 => {
-                    SavedCard::from_id(&card_id)
-                        .unwrap()
-                        .into_normal(NormalCard {
-                            front,
-                            back: input.into(),
-                        });
+                    Card::from_id(&card_id).unwrap().into_normal(NormalCard {
+                        front,
+                        back: input.into(),
+                    });
                     break;
                 }
                 1 => continue,

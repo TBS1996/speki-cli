@@ -13,7 +13,7 @@ use speki_core::{
     common::CardId,
     concept::{Attribute, Concept},
     reviews::Recall,
-    SavedCard,
+    Card,
 };
 use std::{ops::ControlFlow, str::FromStr};
 
@@ -121,7 +121,7 @@ const DEFAULT_FILTER: &'static str =
 
 pub fn review_new() {
     let filter = DEFAULT_FILTER.to_string();
-    let mut cards = speki_core::SavedCard::load_pending(Some(filter));
+    let mut cards = speki_core::Card::load_pending(Some(filter));
     cards.shuffle(&mut thread_rng());
 
     review(cards);
@@ -129,14 +129,14 @@ pub fn review_new() {
 
 pub fn review_old() {
     let filter = DEFAULT_FILTER.to_string();
-    let mut cards = speki_core::SavedCard::load_non_pending(Some(filter));
+    let mut cards = speki_core::Card::load_non_pending(Some(filter));
     cards.shuffle(&mut thread_rng());
 
     review(cards);
 }
 
 fn handle_review_action(card: CardId, action: ReviewAction) -> ControlFlow<()> {
-    let card = SavedCard::from_id(&card).unwrap();
+    let card = Card::from_id(&card).unwrap();
     match action {
         ReviewAction::Grade(grade) => {
             speki_core::review(card.id(), grade);
@@ -151,7 +151,7 @@ fn handle_review_action(card: CardId, action: ReviewAction) -> ControlFlow<()> {
 }
 
 fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
-    let card = SavedCard::from_id(&card).unwrap();
+    let card = Card::from_id(&card).unwrap();
 
     match action.clone() {
         CardAction::NewDependency => {
@@ -221,25 +221,23 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                         concept_card: card.id(),
                     };
 
-                    SavedCard::<AttributeCard>::new(attr, card.category());
+                    Card::<AttributeCard>::new(attr, card.category());
                 }
             }
         }
 
         CardAction::OldAttribute => {
             let mut dependencies: Vec<CardId> = card.dependency_ids().iter().copied().collect();
-            dbg!(&dependencies);
-            dependencies.retain(|id| SavedCard::from_id(id).unwrap().is_concept());
-            dbg!(&dependencies);
+            dependencies.retain(|id| Card::from_id(id).unwrap().is_concept());
 
             let dependency = if dependencies.len() == 1 {
-                dbg!(SavedCard::from_id(&dependencies[0]).unwrap())
+                Card::from_id(&dependencies[0]).unwrap()
             } else if dependencies.is_empty() {
                 notify("must have a concept as a dependency");
                 return ControlFlow::Continue(());
             } else {
                 if let Some(card) = select_from_cards(dependencies) {
-                    dbg!(SavedCard::from_id(&card).unwrap())
+                    Card::from_id(&card).unwrap()
                 } else {
                     return ControlFlow::Continue(());
                 }
@@ -262,9 +260,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                     concept_card: dependency.id(),
                 };
 
-                SavedCard::from_id(&card.id())
-                    .unwrap()
-                    .into_attribute(attribute);
+                Card::from_id(&card.id()).unwrap().into_attribute(attribute);
             }
         }
         CardAction::NewAttribute => {
@@ -287,7 +283,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
 
         CardAction::SetBackRef => {
             if let Some(reff) = select_from_all_cards() {
-                SavedCard::from_id(&card.id()).unwrap().set_ref(reff);
+                Card::from_id(&card.id()).unwrap().set_ref(reff);
             }
         }
         CardAction::Edit => speki_core::edit(card.id()),

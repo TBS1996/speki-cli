@@ -1,17 +1,14 @@
-use std::{fs::read_to_string, io::Write, path::PathBuf, str::FromStr};
-
+use crate::{
+    incread::{inc_path, textstuff},
+    utils::{choose_folder, clear_terminal, get_input_opt, notify},
+};
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{
     categories::Category,
     common::{filename_sanitizer, CardId},
-    SavedCard,
 };
-
-use crate::{
-    incread::{inc_path, textstuff},
-    utils::{choose_folder, clear_terminal, get_input_opt, notify},
-};
+use std::{fs::read_to_string, io::Write, path::PathBuf, str::FromStr};
 
 pub fn add_cards() {
     let category = choose_folder();

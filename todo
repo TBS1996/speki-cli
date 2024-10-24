@@ -16,8 +16,6 @@ view card interface
 
 # thoughts
 
-
-
-instance: an actual thing implementation of class, like turkey is instance of country class
 class: like a category of smth
-sub-class: a class where all its instances is also an intsance of its parent class, but not vice versa. e.g., all women are humans, but not all humans are women
+instance: an actual implementation of class
+attribute: 
