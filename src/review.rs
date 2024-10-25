@@ -117,7 +117,7 @@ pub fn review_menu() {
 }
 
 const DEFAULT_FILTER: &'static str =
-    "recall < 0.85 & finished == true & suspended == false & resolved == true & minrecrecall > 0.85 & minrecstab > 10 & lastreview > 0.5 & lapses < 2";
+    "recall < 0.85 & finished == true & suspended == false & resolved == true & minrecrecall > 0.85 & minrecstab > 50 & lastreview > 0.5 & lapses < 2";
 
 pub fn review_new() {
     let filter = DEFAULT_FILTER.to_string();

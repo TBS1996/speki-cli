@@ -840,17 +840,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fsload"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "serde",
- "serde_json",
- "toml",
- "uuid",
-]
-
-[[package]]
 name = "futf"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2709,7 +2698,6 @@ dependencies = [
  "cli-justify",
  "dirs",
  "eyre",
- "fsload",
  "futures",
  "git2",
  "gkquad",

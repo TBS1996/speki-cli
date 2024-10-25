@@ -16,6 +16,20 @@ view card interface
 
 # thoughts
 
-class: like a category of smth
-instance: an actual implementation of class
-attribute: 
+
+card types
+
+# class
+
+for example: Country, War, Person...
+can also have sub-classes
+
+for example, Woman is a sub-class of Person
+
+# instance
+
+a specific instance of a concept, so for example, WW2 is an instance of War, Marie Curie is an instance of Woman, which inherits Person, basically
+
+# attribute
+
+pre-defined questions for instances of a class. Each class can have some questions that are relevant to instances of its class. For example, when was {} born, can be under Person, then both instances of Male and Female will inherit that question, then you can have attributes specific to for example Female such as "whta is marie curies mtdna?
