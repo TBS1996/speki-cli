@@ -17,7 +17,7 @@ pub fn unfinished() {
 
     for card_id in cards {
         loop {
-            let front = Card::from_id(&card_id).unwrap().print();
+            let front = Card::from_id(card_id).unwrap().print();
             clear_terminal();
 
             let input: String = Input::new()
@@ -40,7 +40,7 @@ pub fn unfinished() {
 
             match selection {
                 0 => {
-                    Card::from_id(&card_id).unwrap().into_normal(NormalCard {
+                    Card::from_id(card_id).unwrap().into_normal(NormalCard {
                         front,
                         back: input.into(),
                     });

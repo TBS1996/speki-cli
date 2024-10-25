@@ -108,7 +108,7 @@ async fn menu() {
 }
 
 fn print_card_info(id: CardId) {
-    let card = Card::from_id(&id).unwrap();
+    let card = Card::from_id(id).unwrap();
     let dependencies = card.dependency_ids();
     let dependents = speki_core::get_cached_dependents(id);
 
@@ -122,7 +122,7 @@ fn print_card_info(id: CardId) {
         for id in dependencies {
             println!(
                 "{}",
-                Card::from_id(&id)
+                Card::from_id(id)
                     .map(|card| card.print())
                     .unwrap_or_else(|| format!("missing card for dependency: {id}"))
             );
@@ -134,7 +134,7 @@ fn print_card_info(id: CardId) {
         for id in dependents {
             println!(
                 "{}",
-                Card::from_id(&id)
+                Card::from_id(id)
                     .map(|card| card.print())
                     .unwrap_or_else(|| format!("missing card for dependent: {id}"))
             );
@@ -203,7 +203,7 @@ async fn main() {
         let id = cli.recall.unwrap();
         let id: uuid::Uuid = id.parse().unwrap();
         let id = CardId(id);
-        let x = speki_core::Card::from_id(&id).unwrap().recall_rate();
+        let x = speki_core::Card::from_id(id).unwrap().recall_rate();
         dbg!(x);
     } else if cli.concept.is_some() {
         speki_core::concept::Concept::create(cli.concept.unwrap());
