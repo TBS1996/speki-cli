@@ -38,7 +38,7 @@ pub fn select_from_attributes(concept: ConceptId) -> Option<AttributeId> {
 pub fn select_from_cards(cards: Vec<CardId>) -> Option<CardId> {
     let cards: Vec<Card<AnyType>> = cards
         .into_iter()
-        .map(|id| Card::from_id(&id).unwrap())
+        .map(|id| Card::from_id(id).unwrap())
         .collect();
 
     enumselector::select_item_with_formatter(cards, |card: &Card<AnyType>| card.print().to_owned())?

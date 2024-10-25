@@ -136,7 +136,7 @@ pub fn review_old() {
 }
 
 fn handle_review_action(card: CardId, action: ReviewAction) -> ControlFlow<()> {
-    let card = Card::from_id(&card).unwrap();
+    let card = Card::from_id(card).unwrap();
     match action {
         ReviewAction::Grade(grade) => {
             speki_core::review(card.id(), grade);
@@ -151,7 +151,7 @@ fn handle_review_action(card: CardId, action: ReviewAction) -> ControlFlow<()> {
 }
 
 fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
-    let card = Card::from_id(&card).unwrap();
+    let card = Card::from_id(card).unwrap();
 
     match action.clone() {
         CardAction::NewDependency => {
@@ -228,16 +228,16 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
 
         CardAction::OldAttribute => {
             let mut dependencies: Vec<CardId> = card.dependency_ids().iter().copied().collect();
-            dependencies.retain(|id| Card::from_id(id).unwrap().is_concept());
+            dependencies.retain(|id| Card::from_id(*id).unwrap().is_concept());
 
             let dependency = if dependencies.len() == 1 {
-                Card::from_id(&dependencies[0]).unwrap()
+                Card::from_id(dependencies[0]).unwrap()
             } else if dependencies.is_empty() {
                 notify("must have a concept as a dependency");
                 return ControlFlow::Continue(());
             } else {
                 if let Some(card) = select_from_cards(dependencies) {
-                    Card::from_id(&card).unwrap()
+                    Card::from_id(card).unwrap()
                 } else {
                     return ControlFlow::Continue(());
                 }
@@ -260,7 +260,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                     concept_card: dependency.id(),
                 };
 
-                Card::from_id(&card.id()).unwrap().into_attribute(attribute);
+                Card::from_id(card.id()).unwrap().into_attribute(attribute);
             }
         }
         CardAction::NewAttribute => {
@@ -283,7 +283,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
 
         CardAction::SetBackRef => {
             if let Some(reff) = select_from_all_cards() {
-                Card::from_id(&card.id()).unwrap().set_ref(reff);
+                Card::from_id(card.id()).unwrap().set_ref(reff);
             }
         }
         CardAction::Edit => speki_core::edit(card.id()),
