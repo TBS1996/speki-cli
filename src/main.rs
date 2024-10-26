@@ -10,7 +10,6 @@ use speki_core::{
     card::AnyType,
     categories::Category,
     common::CardId,
-    concept::Concept,
     github::{poll_for_token, request_device_code, LoginInfo},
     paths::{config_dir, get_cards_path, get_review_path},
     Card,
@@ -112,9 +111,9 @@ fn print_card_info(id: CardId) {
     let dependencies = card.dependency_ids();
     let dependents = speki_core::get_cached_dependents(id);
 
-    if let AnyType::Concept(ty) = card.card_type() {
-        let concept = Concept::load(ty.concept).unwrap();
-        println!("concept: {}", concept.name);
+    if let AnyType::Instance(ty) = card.card_type() {
+        let concept = Card::from_id(ty.class).unwrap().print();
+        println!("concept: {}", concept);
     }
 
     if !dependencies.is_empty() {
@@ -206,7 +205,6 @@ async fn main() {
         let x = speki_core::Card::from_id(id).unwrap().recall_rate();
         dbg!(x);
     } else if cli.concept.is_some() {
-        speki_core::concept::Concept::create(cli.concept.unwrap());
     } else if cli.healthcheck {
         speki_core::health_check();
     } else {

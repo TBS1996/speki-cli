@@ -1,9 +1,9 @@
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use speki_core::{
+    attribute::{Attribute, AttributeId},
     card::AnyType,
     categories::Category,
     common::CardId,
-    concept::{Attribute, AttributeId, Concept, ConceptId},
     Card,
 };
 
@@ -18,15 +18,14 @@ pub fn notify(msg: impl Into<String>) {
         .unwrap();
 }
 
-pub fn select_from_all_concepts() -> Option<ConceptId> {
-    enumselector::select_item_with_formatter(Concept::load_all(), |concept: &Concept| {
-        concept.name.clone()
-    })?
-    .id
-    .into()
+pub fn select_from_all_class_cards() -> Option<CardId> {
+    let cards = Card::load_class_cards();
+    enumselector::select_item_with_formatter(cards, |card: &Card<AnyType>| card.print())?
+        .id()
+        .into()
 }
 
-pub fn select_from_attributes(concept: ConceptId) -> Option<AttributeId> {
+pub fn select_from_attributes(concept: CardId) -> Option<AttributeId> {
     enumselector::select_item_with_formatter(
         Attribute::load_from_concept(concept),
         |attr: &Attribute| attr.pattern().to_owned(),
