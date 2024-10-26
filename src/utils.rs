@@ -18,6 +18,27 @@ pub fn notify(msg: impl Into<String>) {
         .unwrap();
 }
 
+pub fn select_from_subclass_cards(class: CardId) -> Option<CardId> {
+    let cards: Vec<Card<AnyType>> = Card::load_all_cards()
+        .into_iter()
+        .filter(|card| card.load_belonging_classes().contains(&class))
+        .collect();
+
+    enumselector::select_item_with_formatter(cards, |card: &Card<AnyType>| card.print())?
+        .id()
+        .into()
+}
+
+pub fn select_from_all_instance_cards() -> Option<CardId> {
+    let cards: Vec<Card<AnyType>> = Card::load_all_cards()
+        .into_iter()
+        .filter(|card| card.is_instance())
+        .collect();
+    enumselector::select_item_with_formatter(cards, |card: &Card<AnyType>| card.print())?
+        .id()
+        .into()
+}
+
 pub fn select_from_all_class_cards() -> Option<CardId> {
     let cards = Card::load_class_cards();
     enumselector::select_item_with_formatter(cards, |card: &Card<AnyType>| card.print())?
@@ -25,9 +46,18 @@ pub fn select_from_all_class_cards() -> Option<CardId> {
         .into()
 }
 
-pub fn select_from_attributes(concept: CardId) -> Option<AttributeId> {
+pub fn select_from_class_attributes(class: CardId) -> Option<AttributeId> {
     enumselector::select_item_with_formatter(
-        Attribute::load_from_concept(concept),
+        Attribute::load_from_class_only(class),
+        |attr: &Attribute| attr.pattern().to_owned(),
+    )?
+    .id
+    .into()
+}
+
+pub fn select_from_attributes(class: CardId, instance: CardId) -> Option<AttributeId> {
+    enumselector::select_item_with_formatter(
+        Attribute::load_from_class(class, instance),
         |attr: &Attribute| attr.pattern().to_owned(),
     )?
     .id

@@ -3,14 +3,15 @@ use crate::{
     print_card_info,
     utils::{
         clear_terminal, get_input, notify, select_from_all_cards, select_from_all_class_cards,
-        select_from_attributes, select_from_cards,
+        select_from_all_instance_cards, select_from_attributes, select_from_cards,
+        select_from_class_attributes, select_from_subclass_cards,
     },
 };
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use rand::prelude::*;
 use speki_core::{
     attribute::Attribute,
-    card::{AnyType, AttributeCard, ClassCard},
+    card::{AnyType, AttributeCard, BackSide, ClassCard, EventCard, InstanceCard, StatementCard},
     common::CardId,
     reviews::Recall,
     Card,
@@ -54,11 +55,19 @@ enum CardAction {
     OldAttribute,
     FillAttribute,
     SetBackRef,
-    /// Turn card into a class
-    IntoClass,
     /// Set the parent class of current class
     ParentClass,
+
     NewCard,
+    /// Turn card into statement
+    IntoStatement,
+    /// Turn a card into an attribute
+    IntoAttribute,
+    /// Turn card into a class
+    IntoClass,
+
+    IntoInstance,
+    IntoEvent,
 }
 
 #[derive(Clone)]
@@ -79,7 +88,6 @@ impl FromStr for CardAction {
             "T" => Self::NewDependent,
             "c" => Self::OldClass,
             "C" => Self::NewClass,
-            "i" => Self::IntoClass,
             "p" => Self::ParentClass,
             "a" => Self::OldAttribute,
             "A" => Self::NewAttribute,
@@ -88,6 +96,11 @@ impl FromStr for CardAction {
             "n" => Self::NewCard,
             "edit" => Self::Edit,
             "delete" => Self::Delete,
+            "ic" => Self::IntoClass,
+            "ia" => Self::IntoAttribute,
+            "is" => Self::IntoStatement,
+            "ii" => Self::IntoInstance,
+            "ie" => Self::IntoEvent,
             _ => return Err(()),
         })
     }
@@ -127,7 +140,7 @@ pub fn review_menu() {
 }
 
 const DEFAULT_FILTER: &'static str =
-    "recall < 0.85 & finished == true & suspended == false & resolved == true & minrecrecall > 0.85 & minrecstab > 50 & lastreview > 0.5 & lapses < 2";
+    "recall < 0.95 & finished == true & suspended == false & resolved == true & minrecrecall > 0.85 & minrecstab > 50 & lastreview > 0.5 & lapses < 2";
 
 pub fn review_new() {
     let filter = DEFAULT_FILTER.to_string();
@@ -160,10 +173,79 @@ fn handle_review_action(card: CardId, action: ReviewAction) -> ControlFlow<()> {
     }
 }
 
+fn create_attribute_card(card: &Card<AnyType>) -> Option<AttributeCard> {
+    notify(format!("Which instance ?"));
+    let instance_id = select_from_all_instance_cards()?;
+    let instance = Card::from_id(instance_id).unwrap();
+
+    notify(format!("Which attribute among the class?"));
+    let attribute_id = select_from_class_attributes(instance.class().unwrap())?;
+
+    let attribute = Attribute::load(attribute_id).unwrap();
+
+    let back = if let Some(back_type) = attribute.back_type {
+        let class_name = Card::from_id(back_type).unwrap().print();
+        notify(format!(
+            "chosen attribute requires card belonging to this class: {}",
+            class_name,
+        ));
+
+        let back = select_from_subclass_cards(back_type)?;
+
+        BackSide::Card(back)
+    } else {
+        match card.back_side() {
+            Some(back) => back.clone(),
+            None => {
+                let answer: String = Input::new()
+                    .with_prompt("answer to question: ")
+                    .allow_empty(true)
+                    .interact_text()
+                    .expect("Failed to read input");
+                if answer.is_empty() {
+                    return None;
+                }
+
+                BackSide::Text(answer)
+            }
+        }
+    };
+
+    Some(AttributeCard {
+        attribute: attribute.id,
+        back,
+        instance: instance_id,
+    })
+}
+
 fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
     let card = Card::from_id(card).unwrap();
 
-    match action.clone() {
+    match action {
+        CardAction::IntoAttribute => match card.card_type() {
+            AnyType::Normal(_) | AnyType::Unfinished(_) => {
+                if let Some(attr) = create_attribute_card(&card) {
+                    card.into_type(attr);
+                }
+            }
+            AnyType::Attribute(_) => {}
+            AnyType::Instance(_) => {}
+            AnyType::Class(_) => {}
+            AnyType::Statement(_) => {}
+            AnyType::Event(_) => {}
+        },
+
+        CardAction::IntoInstance => {
+            if let Some(class) = select_from_all_class_cards() {
+                let instance = InstanceCard {
+                    name: card.print(),
+                    class,
+                };
+
+                card.into_type(instance);
+            }
+        }
+
         CardAction::NewDependency => {
             println!("add dependency");
             if let Some(new_card) = add_card(card.category()) {
@@ -203,6 +285,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                     name: class,
                     back: "".to_string().into(),
                     parent_class: None,
+                    is_event: false,
                 };
 
                 let id = speki_core::Card::new_class(class, card.category()).id();
@@ -212,12 +295,12 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
 
         CardAction::FillAttribute => {
             if let AnyType::Instance(ty) = card.card_type() {
-                if Attribute::load_from_concept(ty.class).is_empty() {
+                if Attribute::load_from_class(ty.class, card.id()).is_empty() {
                     notify("no attributes for concept. try creating one");
                     return ControlFlow::Continue(());
                 }
 
-                if let Some(attribute) = select_from_attributes(ty.class) {
+                if let Some(attribute) = select_from_attributes(ty.class, card.id()) {
                     let attr = Attribute::load(attribute).unwrap();
                     let txt = attr.name(card.id());
 
@@ -242,6 +325,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
             }
         }
 
+        // Marks this card as an attribute
         CardAction::OldAttribute => {
             let mut dependencies: Vec<CardId> = card.dependency_ids().iter().copied().collect();
             dependencies.retain(|id| Card::from_id(*id).unwrap().is_instance());
@@ -264,19 +348,19 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                 return ControlFlow::Continue(());
             };
 
-            if Attribute::load_from_concept(ty.class).is_empty() {
+            if Attribute::load_from_class(ty.class, card.id()).is_empty() {
                 notify("no attributes found for concept. try creating one");
                 return ControlFlow::Continue(());
             }
 
-            if let Some(attribute) = select_from_attributes(ty.class) {
+            if let Some(attribute) = select_from_attributes(ty.class, dependency.id()) {
                 let attribute = AttributeCard {
                     attribute,
                     back: card.back_side().unwrap().to_owned(),
                     instance: dependency.id(),
                 };
 
-                Card::from_id(card.id()).unwrap().into_attribute(attribute);
+                Card::from_id(card.id()).unwrap().into_type(attribute);
             }
         }
         CardAction::NewAttribute => {
@@ -290,7 +374,11 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                     notify("no pattern created");
                 }
 
-                Attribute::create(pattern, ty.class);
+                notify("which class should the answer belong to?");
+
+                let back_type = select_from_all_class_cards();
+
+                Attribute::create(pattern, ty.class, back_type);
                 notify("new pattern created");
             } else {
                 notify("current card must be a concept");
@@ -304,9 +392,26 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                 name: front,
                 back,
                 parent_class: None,
+                is_event: false,
             };
 
-            card.into_class(class);
+            card.into_type(class);
+        }
+
+        CardAction::IntoStatement => {
+            let statement = StatementCard {
+                front: card.print(),
+            };
+
+            card.into_type(statement);
+        }
+
+        CardAction::IntoEvent => {
+            let event = EventCard {
+                front: card.print(),
+            };
+
+            card.into_type(event);
         }
 
         CardAction::ParentClass => {
@@ -315,7 +420,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                     if parent_class != card.id() {
                         let mut class = class.clone();
                         class.parent_class = Some(parent_class);
-                        card.into_class(class);
+                        card.into_type(class);
                     }
                 }
             } else {
@@ -393,23 +498,54 @@ pub fn view_card(card: CardId, review_mode: bool) -> ControlFlow<()> {
     }
 }
 
-fn print_card(card: CardId, show_backside: bool) -> ControlFlow<()> {
+fn print_card(card: CardId, mut show_backside: bool) -> ControlFlow<()> {
     clear_terminal();
     let card = speki_core::card_from_id(card);
-    let (front, back) = {
-        if let AnyType::Instance(ty) = card.card_type() {
-            let front = format!("which concept: {}", card.print());
-            let back = Card::from_id(ty.class).unwrap().print();
+
+    let var_name = match card.card_type() {
+        AnyType::Instance(instance) => {
+            let back = Card::from_id(instance.class).unwrap().print();
+
+            if instance.is_event() {
+                show_backside = true;
+                let front = card.print();
+                let back = String::default();
+                (front, back)
+            } else {
+                let front = format!("which class: {}", card.print());
+                (front, back)
+            }
+        }
+
+        AnyType::Normal(normal) => {
+            let front = card.print();
+            let back = normal.back.to_string();
             (front, back)
-        } else {
-            (
-                card.print(),
-                card.back_side()
-                    .map(|bs| bs.to_string())
-                    .unwrap_or_default(),
-            )
+        }
+        AnyType::Unfinished(_) => {
+            show_backside = true;
+            let front = card.print();
+            let back = String::from("card has no answer yet");
+            (front, back)
+        }
+        AnyType::Attribute(attribute) => {
+            let front = card.print();
+            let back = attribute.back.to_string();
+            (front, back)
+        }
+        AnyType::Class(class) => {
+            let front = card.print();
+            let back = class.back.to_string();
+            (front, back)
+        }
+        AnyType::Statement(_) | AnyType::Event(_) => {
+            show_backside = true;
+            let front = card.print();
+            let back = String::default();
+            (front, back)
         }
     };
+    let (front, back) = var_name;
 
     let opts = ["reveal answer"];
 

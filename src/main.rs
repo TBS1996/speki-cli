@@ -129,14 +129,20 @@ fn print_card_info(id: CardId) {
     }
 
     if !dependents.is_empty() {
-        println!("{}", style("dependendents").bold());
-        for id in dependents {
-            println!(
-                "{}",
-                Card::from_id(id)
-                    .map(|card| card.print())
-                    .unwrap_or_else(|| format!("missing card for dependent: {id}"))
-            );
+        let dpt_qty = dependents.len();
+
+        if dpt_qty > 10 {
+            println!("card has {} dependents", dpt_qty);
+        } else {
+            println!("{}", style("dependendents").bold());
+            for id in dependents {
+                println!(
+                    "{}",
+                    Card::from_id(id)
+                        .map(|card| card.print())
+                        .unwrap_or_else(|| format!("missing card for dependent: {id}"))
+                );
+            }
         }
     }
 

@@ -1,8 +1,7 @@
+use crate::utils::{clear_terminal, notify};
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use rand::seq::SliceRandom;
 use speki_core::{card::NormalCard, Card};
-
-use crate::utils::{clear_terminal, notify};
 
 pub fn unfinished() {
     let filter = "finished == false & suspended == false".to_string();
@@ -40,7 +39,7 @@ pub fn unfinished() {
 
             match selection {
                 0 => {
-                    Card::from_id(card_id).unwrap().into_normal(NormalCard {
+                    Card::from_id(card_id).unwrap().into_type(NormalCard {
                         front,
                         back: input.into(),
                     });
