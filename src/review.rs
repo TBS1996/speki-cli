@@ -2,16 +2,16 @@ use crate::{
     add_cards::add_card,
     print_card_info,
     utils::{
-        clear_terminal, get_input, notify, select_from_all_cards, select_from_all_concepts,
+        clear_terminal, get_input, notify, select_from_all_cards, select_from_all_class_cards,
         select_from_attributes, select_from_cards,
     },
 };
 use dialoguer::{theme::ColorfulTheme, Input, Select};
 use rand::prelude::*;
 use speki_core::{
-    card::{AnyType, AttributeCard},
+    attribute::Attribute,
+    card::{AnyType, AttributeCard, ClassCard},
     common::CardId,
-    concept::{Attribute, Concept},
     reviews::Recall,
     Card,
 };
@@ -46,12 +46,19 @@ enum CardAction {
     OldDependent,
     Edit,
     Delete,
-    NewConcept,
-    OldConcept,
+    /// Turn card into an instance of a new class
+    NewClass,
+    /// Turn card into an instance of an old class
+    OldClass,
     NewAttribute,
     OldAttribute,
     FillAttribute,
     SetBackRef,
+    /// Turn card into a class
+    IntoClass,
+    /// Set the parent class of current class
+    ParentClass,
+    NewCard,
 }
 
 #[derive(Clone)]
@@ -70,12 +77,15 @@ impl FromStr for CardAction {
             "Y" => Self::NewDependency,
             "t" => Self::OldDependent,
             "T" => Self::NewDependent,
-            "c" => Self::OldConcept,
-            "C" => Self::NewConcept,
+            "c" => Self::OldClass,
+            "C" => Self::NewClass,
+            "i" => Self::IntoClass,
+            "p" => Self::ParentClass,
             "a" => Self::OldAttribute,
             "A" => Self::NewAttribute,
             "fa" => Self::FillAttribute,
             "ref" => Self::SetBackRef,
+            "n" => Self::NewCard,
             "edit" => Self::Edit,
             "delete" => Self::Delete,
             _ => return Err(()),
@@ -176,32 +186,38 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                 speki_core::set_dependency(dep, card.id());
             }
         }
-        CardAction::OldConcept => {
-            if let Some(concept) = select_from_all_concepts() {
-                speki_core::set_concept(card.id(), concept).unwrap();
+        CardAction::OldClass => {
+            if let Some(concept) = select_from_all_class_cards() {
+                speki_core::set_class(card.id(), concept).unwrap();
             }
         }
-        CardAction::NewConcept => {
-            let concept: String = Input::new()
+        CardAction::NewClass => {
+            let class: String = Input::new()
                 .with_prompt("concept name")
                 .allow_empty(true)
                 .interact_text()
                 .expect("Failed to read input");
 
-            if !concept.is_empty() {
-                let id = speki_core::concept::Concept::create(concept);
-                speki_core::set_concept(card.id(), id).unwrap();
+            if !class.is_empty() {
+                let class = ClassCard {
+                    name: class,
+                    back: "".to_string().into(),
+                    parent_class: None,
+                };
+
+                let id = speki_core::Card::new_class(class, card.category()).id();
+                speki_core::set_class(card.id(), id).unwrap();
             }
         }
 
         CardAction::FillAttribute => {
-            if let AnyType::Concept(ty) = card.card_type() {
-                if Attribute::load_from_concept(ty.concept).is_empty() {
+            if let AnyType::Instance(ty) = card.card_type() {
+                if Attribute::load_from_concept(ty.class).is_empty() {
                     notify("no attributes for concept. try creating one");
                     return ControlFlow::Continue(());
                 }
 
-                if let Some(attribute) = select_from_attributes(ty.concept) {
+                if let Some(attribute) = select_from_attributes(ty.class) {
                     let attr = Attribute::load(attribute).unwrap();
                     let txt = attr.name(card.id());
 
@@ -218,7 +234,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                     let attr = AttributeCard {
                         attribute,
                         back: back.into(),
-                        concept_card: card.id(),
+                        instance: card.id(),
                     };
 
                     Card::<AttributeCard>::new(attr, card.category());
@@ -228,7 +244,7 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
 
         CardAction::OldAttribute => {
             let mut dependencies: Vec<CardId> = card.dependency_ids().iter().copied().collect();
-            dependencies.retain(|id| Card::from_id(*id).unwrap().is_concept());
+            dependencies.retain(|id| Card::from_id(*id).unwrap().is_instance());
 
             let dependency = if dependencies.len() == 1 {
                 Card::from_id(dependencies[0]).unwrap()
@@ -243,28 +259,28 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                 }
             };
 
-            let AnyType::Concept(ty) = dependency.card_type() else {
+            let AnyType::Instance(ty) = dependency.card_type() else {
                 notify("dependency must be a concept");
                 return ControlFlow::Continue(());
             };
 
-            if Attribute::load_from_concept(ty.concept).is_empty() {
+            if Attribute::load_from_concept(ty.class).is_empty() {
                 notify("no attributes found for concept. try creating one");
                 return ControlFlow::Continue(());
             }
 
-            if let Some(attribute) = select_from_attributes(ty.concept) {
+            if let Some(attribute) = select_from_attributes(ty.class) {
                 let attribute = AttributeCard {
                     attribute,
                     back: card.back_side().unwrap().to_owned(),
-                    concept_card: dependency.id(),
+                    instance: dependency.id(),
                 };
 
                 Card::from_id(card.id()).unwrap().into_attribute(attribute);
             }
         }
         CardAction::NewAttribute => {
-            if let AnyType::Concept(ty) = card.card_type() {
+            if let AnyType::Instance(ty) = card.card_type() {
                 let pattern: String = Input::new()
                     .with_prompt("attribute pattern")
                     .allow_empty(true)
@@ -274,10 +290,36 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
                     notify("no pattern created");
                 }
 
-                Attribute::create(pattern, ty.concept);
+                Attribute::create(pattern, ty.class);
                 notify("new pattern created");
             } else {
                 notify("current card must be a concept");
+            }
+        }
+
+        CardAction::IntoClass => {
+            let front = card.print();
+            let back = card.back_side().map(ToOwned::to_owned).unwrap_or_default();
+            let class = ClassCard {
+                name: front,
+                back,
+                parent_class: None,
+            };
+
+            card.into_class(class);
+        }
+
+        CardAction::ParentClass => {
+            if let AnyType::Class(class) = card.card_type() {
+                if let Some(parent_class) = select_from_all_class_cards() {
+                    if parent_class != card.id() {
+                        let mut class = class.clone();
+                        class.parent_class = Some(parent_class);
+                        card.into_class(class);
+                    }
+                }
+            } else {
+                notify("parent class can only be set for class");
             }
         }
 
@@ -290,6 +332,10 @@ fn handle_action(card: CardId, action: CardAction) -> ControlFlow<()> {
         CardAction::Delete => {
             speki_core::delete(card.id());
             return ControlFlow::Break(());
+        }
+
+        CardAction::NewCard => {
+            let _ = add_card(card.category());
         }
     }
 
@@ -351,9 +397,9 @@ fn print_card(card: CardId, show_backside: bool) -> ControlFlow<()> {
     clear_terminal();
     let card = speki_core::card_from_id(card);
     let (front, back) = {
-        if let AnyType::Concept(ty) = card.card_type() {
+        if let AnyType::Instance(ty) = card.card_type() {
             let front = format!("which concept: {}", card.print());
-            let back = Concept::load(ty.concept).unwrap().name;
+            let back = Card::from_id(ty.class).unwrap().print();
             (front, back)
         } else {
             (
